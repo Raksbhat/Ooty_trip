@@ -164,6 +164,434 @@
 </head>
 <body style="margin:0; padding:20px; background:#eee8da; font-family: Georgia, serif;">
 
+<!-- ========== CINEMATIC INTRO — Three.js WebGL ========== -->
+<div id="ooty-intro" style="position:fixed;inset:0;z-index:9999;overflow:hidden;background:#0a1a0f;">
+  <canvas id="ooty-canvas" style="width:100%;height:100%;display:block;"></canvas>
+
+  <!-- HUD overlay -->
+  <div id="ooty-hud" style="position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:48px 24px 36px;">
+    <div style="text-align:center;">
+      <div id="ooty-title-text" style="font-family:Georgia,serif;font-size:clamp(28px,8vw,42px);font-weight:bold;color:#f6f1e7;letter-spacing:3px;text-shadow:0 0 30px rgba(100,200,120,0.6),0 2px 8px rgba(0,0,0,0.8);opacity:0;transition:opacity 1.2s ease;">Ooty Ride Plan</div>
+      <div id="ooty-sub-text" style="font-family:Georgia,serif;font-size:clamp(13px,3.5vw,17px);color:#a8d8b0;margin-top:8px;text-shadow:0 1px 6px rgba(0,0,0,0.8);opacity:0;transition:opacity 1.4s ease 0.4s;">Raks &amp; Prateeksha · June 2025</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="font-family:Georgia,serif;font-size:13px;color:#f6f1e7;opacity:0.45;letter-spacing:1px;" id="ooty-skip-hint">tap anywhere to skip</div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script>
+  (function(){
+    var W = window.innerWidth, H = window.innerHeight;
+    var canvas = document.getElementById('ooty-canvas');
+    canvas.width = W; canvas.height = H;
+
+    // --- Renderer ---
+    var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(W, H);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.setClearColor(0x0a1a0f);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+
+    // --- Scene + Camera ---
+    var scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x1a3a22, 0.038);
+
+    var camera = new THREE.PerspectiveCamera(60, W/H, 0.1, 300);
+    camera.position.set(0, 3.5, 14);
+    camera.lookAt(0, 1.5, 0);
+
+    // --- Lighting ---
+    var ambient = new THREE.AmbientLight(0x223322, 0.7);
+    scene.add(ambient);
+
+    var moon = new THREE.DirectionalLight(0x8ab8d0, 1.2);
+    moon.position.set(-8, 18, 10);
+    moon.castShadow = true;
+    moon.shadow.mapSize.set(1024, 1024);
+    moon.shadow.camera.near = 1;
+    moon.shadow.camera.far = 80;
+    moon.shadow.camera.left = -30;
+    moon.shadow.camera.right = 30;
+    moon.shadow.camera.top = 30;
+    moon.shadow.camera.bottom = -30;
+    scene.add(moon);
+
+    var headlightL = new THREE.SpotLight(0xfff4c2, 4, 30, Math.PI/8, 0.4);
+    var headlightR = new THREE.SpotLight(0xfff4c2, 4, 30, Math.PI/8, 0.4);
+    scene.add(headlightL, headlightR);
+
+    var warmFill = new THREE.PointLight(0xff8844, 0.4, 20);
+    warmFill.position.set(2, 4, 8);
+    scene.add(warmFill);
+
+    // --- Helpers ---
+    function box(w,h,d,color,rx,ry,rz){ var g=new THREE.BoxGeometry(w,h,d); var m=new THREE.MeshLambertMaterial({color:color}); var mesh=new THREE.Mesh(g,m); mesh.castShadow=true; mesh.receiveShadow=true; if(rx) mesh.rotation.x=rx; if(ry) mesh.rotation.y=ry; if(rz) mesh.rotation.z=rz; return mesh; }
+    function sphere(r,color){ return new THREE.Mesh(new THREE.SphereGeometry(r,16,12),new THREE.MeshLambertMaterial({color:color})); }
+    function cyl(rt,rb,h,color,segs){ var m=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,segs||8),new THREE.MeshLambertMaterial({color:color})); m.castShadow=true; return m; }
+
+    // --- Ground ---
+    var groundGeo = new THREE.PlaneGeometry(120, 120, 32, 32);
+    var groundVerts = groundGeo.attributes.position;
+    for(var i=0;i<groundVerts.count;i++){
+      groundVerts.setY(i, Math.sin(groundVerts.getX(i)*0.3)*0.4 + Math.cos(groundVerts.getZ(i)*0.25)*0.3);
+    }
+    groundGeo.computeVertexNormals();
+    var ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ color: 0x1a3d22 }));
+    ground.rotation.x = -Math.PI/2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // --- Road ---
+    var roadShape = new THREE.Shape();
+    roadShape.moveTo(-2.2, 0);
+    roadShape.bezierCurveTo(-2.4, 8, -1.2, 16, -0.5, 24);
+    roadShape.bezierCurveTo(0.2, 32, 0.8, 40, 0.3, 60);
+    roadShape.lineTo(2.3, 60);
+    roadShape.bezierCurveTo(2.8, 40, 2.2, 32, 1.5, 24);
+    roadShape.bezierCurveTo(0.8, 16, 2.0, 8, 2.2, 0);
+    roadShape.lineTo(-2.2, 0);
+    var roadGeo = new THREE.ShapeGeometry(roadShape);
+    var road = new THREE.Mesh(roadGeo, new THREE.MeshLambertMaterial({ color: 0x2c2620 }));
+    road.rotation.x = -Math.PI/2;
+    road.position.y = 0.02;
+    scene.add(road);
+
+    // Road dashes
+    for(var d=0;d<14;d++){
+      var dash = box(0.15,0.02,1.2,0xc8b040);
+      dash.position.set(0, 0.04, -d*4-1);
+      scene.add(dash);
+    }
+
+    // --- Mountains (layered) ---
+    function makeMountain(x,y,z,scaleX,scaleY,color){
+      var g = new THREE.ConeGeometry(1,1,8);
+      var m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({color:color}));
+      m.scale.set(scaleX, scaleY, scaleX*0.7);
+      m.position.set(x,y,z);
+      m.castShadow=true;
+      scene.add(m);
+    }
+    // Back range
+    var mtns=[
+      [-22,10,-55,14,20,0x1a3a22],[-8,14,-60,18,28,0x1e4228],[6,12,-58,16,24,0x1a3a22],
+      [20,11,-56,13,22,0x1e4228],[32,9,-52,11,18,0x163520],[-36,8,-50,12,16,0x163520],
+    ];
+    mtns.forEach(function(m){ makeMountain(m[0],m[1],m[2],m[3],m[4],m[5]); });
+    // Mid range
+    var mid=[
+      [-16,7,-35,10,14,0x1e4a2c],[-4,9,-38,13,18,0x254e30],[10,8,-36,11,16,0x1e4a2c],
+      [24,6,-33,9,12,0x254e30],[-28,5,-30,9,11,0x1e4a2c],
+    ];
+    mid.forEach(function(m){ makeMountain(m[0],m[1],m[2],m[3],m[4],m[5]); });
+
+    // Mist plane between mountains
+    var mistMat = new THREE.MeshBasicMaterial({color:0xb8d8c0,transparent:true,opacity:0.12,side:THREE.DoubleSide,depthWrite:false});
+    [-45,-35].forEach(function(z){
+      var mist=new THREE.Mesh(new THREE.PlaneGeometry(80,4),mistMat);
+      mist.rotation.x=-Math.PI/2; mist.position.set(0,5,z); scene.add(mist);
+    });
+
+    // --- Forest trees ---
+    function makeTree(x,z,h,col){
+      var trunk=cyl(0.08,0.1,h*0.35,0x3d2810);
+      trunk.position.set(x,h*0.175,z);
+      scene.add(trunk);
+      var foliage=cyl(0,h*0.55,h*0.75,col||0x1a4a22);
+      foliage.position.set(x,h*0.35+h*0.375,z);
+      foliage.castShadow=true;
+      scene.add(foliage);
+    }
+    var treePos=[
+      [-4,0],[-5,-4],[-6.5,-8],[-5.5,-12],[-7,-16],[-5,-20],[-6,-24],
+      [4,0],[5.5,-4],[6,-8],[5,-12],[7,-16],[5.5,-20],[6.5,-24],
+      [-8,-2],[-9,-10],[-8.5,-18],
+      [8,-2],[9,-10],[8.5,-18],
+    ];
+    treePos.forEach(function(p){
+      var h=2.5+Math.random()*2.5;
+      var green=[0x1a4a22,0x1e5228,0x163d1a,0x245e2c];
+      makeTree(p[0],p[1],h,green[Math.floor(Math.random()*green.length)]);
+    });
+
+    // --- Stars ---
+    var starGeo=new THREE.BufferGeometry();
+    var starVerts=[];
+    for(var s=0;s<600;s++){
+      starVerts.push((Math.random()-0.5)*200,(Math.random()*60+20),(Math.random()-0.5)*200);
+    }
+    starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starVerts,3));
+    var stars=new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff,size:0.2,sizeAttenuation:true}));
+    scene.add(stars);
+
+    // --- Fireflies ---
+    var ffGeo=new THREE.BufferGeometry();
+    var ffPos=[],ffPhase=[];
+    for(var f=0;f<80;f++){
+      ffPos.push((Math.random()-0.5)*18, Math.random()*4+0.5, (Math.random()-0.5)*30-8);
+      ffPhase.push(Math.random()*Math.PI*2);
+    }
+    ffGeo.setAttribute('position',new THREE.Float32BufferAttribute(ffPos,3));
+    var fireflies=new THREE.Points(ffGeo,new THREE.PointsMaterial({color:0xaaff66,size:0.12,transparent:true,opacity:0.9,sizeAttenuation:true}));
+    scene.add(fireflies);
+
+    // --- Moon ---
+    var moonMesh=sphere(1.8,0xd8e8f0);
+    moonMesh.position.set(-18,28,-60);
+    var moonGlow=new THREE.PointLight(0x9ab8d8,0.6,80);
+    moonGlow.position.copy(moonMesh.position);
+    scene.add(moonMesh,moonGlow);
+
+    // ============================================================
+    // ELEPHANT — built from primitives, walks across bottom half
+    // ============================================================
+    var elGroup = new THREE.Group();
+
+    // Body
+    var body=new THREE.Mesh(new THREE.SphereGeometry(1.4,16,12),new THREE.MeshLambertMaterial({color:0x5a5040}));
+    body.scale.set(1,0.82,1.5); body.position.set(0,1.4,0); body.castShadow=true; elGroup.add(body);
+
+    // Head
+    var head=sphere(0.95,0x5a5040); head.position.set(0,2.1,1.8); head.castShadow=true; elGroup.add(head);
+
+    // Ears
+    [1,-1].forEach(function(side){
+      var ear=new THREE.Mesh(new THREE.SphereGeometry(0.7,12,8),new THREE.MeshLambertMaterial({color:0x6e6050}));
+      ear.scale.set(0.22,0.75,0.75); ear.position.set(side*1.05,2.1,1.7); elGroup.add(ear);
+    });
+
+    // Trunk (segmented)
+    var trunkPts=[];
+    for(var t=0;t<8;t++) trunkPts.push(new THREE.Vector3(0, 2.1-t*0.22, 1.8+t*0.18));
+    // end of trunk curls up
+    trunkPts[7].set(0.2, 1.2, 3.4);
+    var trunkCurve=new THREE.CatmullRomCurve3(trunkPts);
+    var trunkGeo=new THREE.TubeGeometry(trunkCurve,14,0.12,8,false);
+    var trunk=new THREE.Mesh(trunkGeo,new THREE.MeshLambertMaterial({color:0x4e4838}));
+    trunk.castShadow=true; elGroup.add(trunk);
+
+    // Tusk
+    var tuskCurve=new THREE.QuadraticBezierCurve3(new THREE.Vector3(0.3,1.7,2.2),new THREE.Vector3(0.6,1.4,3.0),new THREE.Vector3(0.4,1.6,3.6));
+    var tusk=new THREE.Mesh(new THREE.TubeGeometry(tuskCurve,8,0.06,6,false),new THREE.MeshLambertMaterial({color:0xe0d090}));
+    elGroup.add(tusk);
+
+    // Eye
+    var eye=sphere(0.1,0x0a0808); eye.position.set(0.52,2.38,2.5); elGroup.add(eye);
+    var eyeShine=sphere(0.04,0xffffff); eyeShine.position.set(0.56,2.42,2.56); elGroup.add(eyeShine);
+
+    // Legs
+    var legs=[];
+    [[0.6,0,0.7],[-0.6,0,0.7],[0.6,0,-0.7],[-0.6,0,-0.7]].forEach(function(p,i){
+      var leg=new THREE.Group();
+      var upper=cyl(0.22,0.22,0.8,0x4e4838);
+      upper.position.y=0.4; leg.add(upper);
+      var lower=cyl(0.18,0.22,0.7,0x5a5040);
+      lower.position.y=-0.35; leg.add(lower);
+      var foot=new THREE.Mesh(new THREE.SphereGeometry(0.25,8,6),new THREE.MeshLambertMaterial({color:0x3a3428}));
+      foot.scale.set(1,0.55,1.2); foot.position.y=-0.75; leg.add(foot);
+      leg.position.set(p[0],0.5,p[2]);
+      leg.castShadow=true;
+      elGroup.add(leg);
+      legs.push({g:leg,phase:i*Math.PI/2});
+    });
+
+    // Tail
+    var tailCurve=new THREE.QuadraticBezierCurve3(new THREE.Vector3(0,1.6,-2.1),new THREE.Vector3(-0.3,1.0,-2.7),new THREE.Vector3(-0.1,0.5,-2.4));
+    var tail=new THREE.Mesh(new THREE.TubeGeometry(tailCurve,6,0.06,5,false),new THREE.MeshLambertMaterial({color:0x4e4838}));
+    elGroup.add(tail);
+
+    // Scale up elephant to be LARGE (half screen sense)
+    elGroup.scale.set(2.2, 2.2, 2.2);
+    elGroup.position.set(28, 0, 4);  // starts off right
+    scene.add(elGroup);
+
+    // Elephant shadow on ground
+    var elShadow=new THREE.Mesh(new THREE.EllipseGeometry(3.5,2,16),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.25}));
+    elShadow.rotation.x=-Math.PI/2; elShadow.position.y=0.01;
+    scene.add(elShadow);
+
+    // ============================================================
+    // SCOOTER with two riders
+    // ============================================================
+    var scooterGroup = new THREE.Group();
+
+    // Scooter body
+    var sbody=box(0.35,0.22,1.1,0xc84a28);
+    sbody.position.set(0,0.45,0); scooterGroup.add(sbody);
+    var sfront=box(0.28,0.18,0.35,0xb53e1e);
+    sfront.position.set(0,0.5,0.55); sfront.rotation.x=0.2; scooterGroup.add(sfront);
+
+    // Wheels
+    function wheel(z){
+      var w=new THREE.Group();
+      var rim=new THREE.Mesh(new THREE.TorusGeometry(0.3,0.08,10,24),new THREE.MeshLambertMaterial({color:0x1a1210}));
+      rim.rotation.y=Math.PI/2; w.add(rim);
+      var hub=cyl(0.1,0.1,0.12,0x888888);
+      hub.rotation.z=Math.PI/2; w.add(hub);
+      w.position.set(0,0.3,z);
+      scooterGroup.add(w);
+      return w;
+    }
+    var wFront=wheel(0.55), wBack=wheel(-0.55);
+
+    // Handlebar
+    var hbar=box(0.7,0.06,0.06,0x666666);
+    hbar.position.set(0,0.85,0.52); scooterGroup.add(hbar);
+
+    // Exhaust
+    var exhaust=cyl(0.04,0.04,0.5,0x888888); exhaust.rotation.z=Math.PI/2;
+    exhaust.position.set(0.22,0.28,-0.5); scooterGroup.add(exhaust);
+
+    // Headlight
+    var hlight=new THREE.Mesh(new THREE.SphereGeometry(0.08,8,6),new THREE.MeshBasicMaterial({color:0xfffce0}));
+    hlight.position.set(0,0.65,0.7); scooterGroup.add(hlight);
+
+    // Rider 1 (Raks — front)
+    var r1=new THREE.Group();
+    var r1body=box(0.26,0.44,0.22,0x2a4a9a); r1body.position.y=0.22; r1.add(r1body);
+    var r1head=sphere(0.18,0xd4a860); r1head.position.y=0.55; r1.add(r1head);
+    var r1helmet=new THREE.Mesh(new THREE.SphereGeometry(0.21,12,8),new THREE.MeshLambertMaterial({color:0xe8c040}));
+    r1helmet.scale.y=0.8; r1helmet.position.y=0.58; r1.add(r1helmet);
+    var r1arm=box(0.4,0.06,0.06,0x2a4a9a); r1arm.position.set(0,0.38,0.22); r1.add(r1arm);
+    r1.position.set(0,0.64,0.1);
+    scooterGroup.add(r1);
+
+    // Rider 2 (Prateeksha — back)
+    var r2=new THREE.Group();
+    var r2body=box(0.24,0.4,0.22,0xd4508a); r2body.position.y=0.2; r2.add(r2body);
+    var r2head=sphere(0.16,0xd4a860); r2head.position.y=0.5; r2.add(r2head);
+    var r2helmet=new THREE.Mesh(new THREE.SphereGeometry(0.19,12,8),new THREE.MeshLambertMaterial({color:0xe0b030}));
+    r2helmet.scale.y=0.8; r2helmet.position.y=0.52; r2.add(r2helmet);
+    // hair
+    var hair=new THREE.Mesh(new THREE.SphereGeometry(0.17,8,6),new THREE.MeshLambertMaterial({color:0x1a0a04}));
+    hair.scale.set(1,0.5,1); hair.position.set(0,0.52,-0.1); r2.add(hair);
+    r2.position.set(0,0.62,-0.22);
+    scooterGroup.add(r2);
+
+    scooterGroup.scale.set(0.9,0.9,0.9);
+    scooterGroup.position.set(0,0,-35);
+    scene.add(scooterGroup);
+
+    // Position headlight spots on scooter
+    headlightL.position.set(-0.15,1.1,0.8);
+    headlightR.position.set(0.15,1.1,0.8);
+    headlightL.target.position.set(-0.5,-0.5,10);
+    headlightR.target.position.set(0.5,-0.5,10);
+    scene.add(headlightL.target, headlightR.target);
+
+    // ============================================================
+    // Animation loop
+    // ============================================================
+    var clock=new THREE.Clock();
+    var INTRO_DURATION=12;
+    var scooterZ=-35;
+    var elephantX=28;
+    var introActive=true;
+    var startTime=null;
+
+    // Fade in title text
+    setTimeout(function(){
+      document.getElementById('ooty-title-text').style.opacity='1';
+      document.getElementById('ooty-sub-text').style.opacity='1';
+    }, 800);
+
+    function animate(){
+      if(!introActive) return;
+      requestAnimationFrame(animate);
+      var t=clock.getElapsedTime();
+      if(!startTime) startTime=t;
+      var elapsed=t-startTime;
+
+      // Fireflies flicker
+      var ffArr=ffGeo.attributes.position.array;
+      for(var f=0;f<80;f++){
+        ffArr[f*3+1]=ffPos[f*3+1]+Math.sin(t*1.8+ffPhase[f])*0.25;
+      }
+      ffGeo.attributes.position.needsUpdate=true;
+      fireflies.material.opacity=0.5+0.5*Math.sin(t*2.1);
+
+      // Mist drift via camera subtle sway
+      camera.position.x=Math.sin(t*0.15)*0.4;
+      camera.position.y=3.5+Math.sin(t*0.2)*0.15;
+
+      // Stars twinkle
+      stars.material.opacity=0.6+0.4*Math.sin(t*0.8);
+
+      // Scooter drives forward along road (z from -35 toward camera, then past)
+      scooterZ = -35 + elapsed * 3.8;
+      if(scooterZ > 18) scooterZ = -35; // loop back
+      scooterGroup.position.z = scooterZ;
+      // Road sway
+      scooterGroup.position.x = Math.sin(scooterZ*0.06)*1.2;
+      scooterGroup.rotation.y = Math.cos(scooterZ*0.06)*0.08;
+      scooterGroup.rotation.z = Math.sin(t*8)*0.018; // tiny vibration
+
+      // Wheel spin
+      var wspeed=t*6;
+      wFront.rotation.x=wspeed; wBack.rotation.x=wspeed;
+
+      // Headlight follows scooter
+      headlightL.position.set(scooterGroup.position.x-0.15,1.1,scooterZ+0.9);
+      headlightR.position.set(scooterGroup.position.x+0.15,1.1,scooterZ+0.9);
+      headlightL.target.position.set(scooterGroup.position.x-0.4,0,scooterZ+12);
+      headlightR.target.position.set(scooterGroup.position.x+0.4,0,scooterZ+12);
+      headlightL.target.updateMatrixWorld();
+      headlightR.target.updateMatrixWorld();
+
+      // Elephant walks left across scene
+      elephantX = 28 - elapsed * 2.2;
+      if(elephantX < -28){ elephantX=28; } // loop
+      elGroup.position.x = elephantX;
+      elGroup.rotation.y = Math.PI; // facing left
+
+      // Elephant leg walk cycle
+      var walkCycle=t*2.8;
+      legs.forEach(function(leg){
+        leg.g.rotation.x=Math.sin(walkCycle+leg.phase)*0.45;
+      });
+      // Body gentle bob
+      elGroup.position.y=Math.sin(walkCycle*0.5)*0.12;
+      // Trunk sway
+      trunk.rotation.x=Math.sin(walkCycle*0.7)*0.15;
+
+      // Shadow follows elephant
+      elShadow.position.set(elephantX,0.01,elGroup.position.z);
+
+      // Camera very slowly pulls back and tilts for cinematic feel
+      camera.position.z = 14 + Math.sin(t*0.08)*1.5;
+      camera.lookAt(0,1.5,0);
+
+      renderer.render(scene,camera);
+
+      // Auto exit after INTRO_DURATION
+      if(elapsed > INTRO_DURATION){ doSkip(); }
+    }
+    animate();
+
+    function doSkip(){
+      if(!introActive) return;
+      introActive=false;
+      var intro=document.getElementById('ooty-intro');
+      intro.style.transition='opacity 0.9s ease';
+      intro.style.opacity='0';
+      setTimeout(function(){ intro.style.display='none'; renderer.dispose(); }, 950);
+    }
+
+    window.ootySkipIntro=doSkip;
+    document.getElementById('ooty-intro').addEventListener('click', doSkip);
+    window.addEventListener('resize',function(){
+      W=window.innerWidth; H=window.innerHeight;
+      camera.aspect=W/H; camera.updateProjectionMatrix();
+      renderer.setSize(W,H);
+    });
+  })();
+  </script>
+</div>
+
 <div id="ooty-signin-screen" style="max-width:720px; margin:60px auto; text-align:center; padding:40px 24px; background:#f6f1e7; border-radius:14px;">
   <div style="font-size:24px; font-weight:bold; color:#2b2420; margin-bottom:8px;">Ooty Ride Plan</div>
   <div style="font-size:14px; color:#5a5248; margin-bottom:24px;">Sign in with Google to load your trip data</div>
@@ -292,6 +720,14 @@
 
 <script>
 (function(){
+
+  // ---------- Intro scene (handled by inline script in intro div) ----------
+  if(!window.ootySkipIntro){
+    window.ootySkipIntro = function(){
+      var intro = document.getElementById('ooty-intro');
+      if(intro){ intro.style.opacity='0'; setTimeout(function(){ intro.style.display='none'; }, 900); }
+    };
+  }
 
   // ---------- Config ----------
   // Paste your Google OAuth Client ID below (from Google Cloud Console > Credentials)
