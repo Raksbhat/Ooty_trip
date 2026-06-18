@@ -4,6 +4,138 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ooty Ride Plan</title>
+<style>
+  .ooty-expense-form{
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .ooty-expense-form input{
+    box-sizing:border-box;
+  }
+  .ooty-input-who{ width:90px; }
+  .ooty-input-what{ flex:1; }
+  .ooty-input-amt{ width:70px; }
+
+  @media (max-width: 768px){
+    .ooty-expense-form{
+      flex-direction:column;
+    }
+    .ooty-input-who,
+    .ooty-input-what,
+    .ooty-input-amt{
+      width:100%;
+    }
+  }
+
+  .ooty-expense-row{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    padding:8px 0;
+    border-bottom:1px solid var(--line, #d9cdb4);
+  }
+  .ooty-expense-row img{
+    width:36px;
+    height:36px;
+    object-fit:cover;
+    border-radius:5px;
+    flex-shrink:0;
+  }
+  .ooty-expense-desc{
+    flex:1;
+    min-width:0;
+    overflow-wrap:break-word;
+    word-break:break-word;
+  }
+  .ooty-expense-amt{
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+
+  /* ---------- Ooty theme: subtle animations & decorative widgets ---------- */
+  @keyframes ooty-fade-in{
+    from{ opacity:0; transform:translateY(6px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  @keyframes ooty-mist-drift{
+    0%{ transform:translateX(-6%); }
+    50%{ transform:translateX(6%); }
+    100%{ transform:translateX(-6%); }
+  }
+  @keyframes ooty-train-chug{
+    0%{ transform:translateX(-6px); }
+    50%{ transform:translateX(6px); }
+    100%{ transform:translateX(-6px); }
+  }
+  @keyframes ooty-puff{
+    0%{ opacity:0.55; transform:translateY(0) scale(0.7); }
+    100%{ opacity:0; transform:translateY(-10px) scale(1.3); }
+  }
+  @keyframes ooty-leaf-sway{
+    0%, 100%{ transform:rotate(-4deg); }
+    50%{ transform:rotate(4deg); }
+  }
+
+  .ooty-header-art{
+    position:relative;
+    overflow:hidden;
+    height:46px;
+    margin-top:10px;
+    border-radius:8px;
+  }
+  .ooty-header-art svg{
+    position:absolute;
+    bottom:0; left:0;
+    width:140%;
+    height:100%;
+    animation:ooty-mist-drift 18s ease-in-out infinite;
+  }
+
+  .ooty-track-divider{
+    position:relative;
+    height:18px;
+    overflow:hidden;
+    background:repeating-linear-gradient(90deg, var(--line,#d9cdb4) 0 8px, transparent 8px 16px);
+  }
+  .ooty-track-train{
+    position:absolute;
+    top:1px; left:46%;
+    font-size:14px;
+    animation:ooty-train-chug 4s ease-in-out infinite;
+  }
+
+  .ooty-day-card{
+    animation:ooty-fade-in 0.45s ease-out both;
+  }
+
+  .ooty-tab-btn{
+    transition:background 0.25s ease, opacity 0.25s ease, transform 0.15s ease;
+  }
+  .ooty-tab-btn:hover{
+    transform:translateY(-1px);
+  }
+
+  button{
+    transition:transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+  }
+  button:hover{
+    transform:translateY(-1px);
+  }
+  button:active{
+    transform:translateY(0);
+  }
+
+  .ooty-leaf-badge{
+    display:inline-block;
+    animation:ooty-leaf-sway 3s ease-in-out infinite;
+    transform-origin:50% 0%;
+  }
+
+  #ooty-pane-plan, #ooty-pane-money{
+    animation:ooty-fade-in 0.3s ease-out both;
+  }
+</style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
@@ -30,11 +162,26 @@
       <button data-action="sign-out" style="margin-top:6px; font-size:11px; padding:4px 10px; background:rgba(255,255,255,0.15); color:white; border:1px solid rgba(255,255,255,0.3); border-radius:6px; cursor:pointer; font-family:inherit;">Sign out</button>
     </div>
   </div>
+  <div class="ooty-header-art" aria-hidden="true">
+    <svg viewBox="0 0 400 60" preserveAspectRatio="none">
+      <polygon points="0,60 40,18 80,60" fill="#2f4438" opacity="0.55"/>
+      <polygon points="60,60 110,8 160,60" fill="#2f4438" opacity="0.7"/>
+      <polygon points="140,60 190,22 240,60" fill="#28392e" opacity="0.6"/>
+      <polygon points="220,60 270,4 320,60" fill="#28392e" opacity="0.75"/>
+      <polygon points="300,60 345,20 400,60" fill="#2f4438" opacity="0.55"/>
+      <ellipse cx="70" cy="22" rx="34" ry="7" fill="#f6f1e7" opacity="0.18"/>
+      <ellipse cx="230" cy="14" rx="44" ry="8" fill="#f6f1e7" opacity="0.14"/>
+      <ellipse cx="340" cy="26" rx="30" ry="6" fill="#f6f1e7" opacity="0.16"/>
+    </svg>
+  </div>
 </div>
 
 <div style="display:flex; border-bottom:1px solid var(--line);">
-  <button data-action="show-tab" data-tab="plan" id="ooty-tab-plan" style="flex:1; padding:13px; background:var(--gold); color:var(--ink); border:none; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer;">Itinerary</button>
-  <button data-action="show-tab" data-tab="money" id="ooty-tab-money" style="flex:1; padding:13px; background:transparent; color:var(--ink); border:none; font-family:inherit; font-size:14px; cursor:pointer; opacity:0.6;">Expenses</button>
+  <button data-action="show-tab" data-tab="plan" id="ooty-tab-plan" class="ooty-tab-btn" style="flex:1; padding:13px; background:var(--gold); color:var(--ink); border:none; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer;">Itinerary</button>
+  <button data-action="show-tab" data-tab="money" id="ooty-tab-money" class="ooty-tab-btn" style="flex:1; padding:13px; background:transparent; color:var(--ink); border:none; font-family:inherit; font-size:14px; cursor:pointer; opacity:0.6;">Expenses</button>
+</div>
+<div class="ooty-track-divider" aria-hidden="true">
+  <span class="ooty-track-train">🚂</span>
 </div>
 
 <div id="ooty-pane-plan" style="padding:20px 22px 26px;">
@@ -84,16 +231,16 @@
       <div id="ooty-spent-total" style="font-size:20px; font-weight:bold; color:var(--rust);">₹0</div>
     </div>
     <div style="flex:1; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center;">
-      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.6;">Remaining</div>
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.6;"><span class="ooty-leaf-badge">🍃</span> Remaining</div>
       <div id="ooty-remaining-total" style="font-size:20px; font-weight:bold; color:var(--pine);">₹20,000</div>
     </div>
   </div>
 
   <div style="font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--pine); font-weight:bold; margin-bottom:10px;">Log an expense</div>
-  <div style="display:flex; gap:8px; margin-bottom:10px;">
-    <input id="ooty-who" placeholder="Name" style="width:90px; padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
-    <input id="ooty-what" placeholder="What for" style="flex:1; padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
-    <input id="ooty-amt" type="number" placeholder="₹" style="width:70px; padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+  <div class="ooty-expense-form">
+    <input id="ooty-who" class="ooty-input-who" placeholder="Name" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+    <input id="ooty-what" class="ooty-input-what" placeholder="What for" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+    <input id="ooty-amt" class="ooty-input-amt" type="number" placeholder="₹" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
   </div>
   <button data-action="add-expense" style="width:100%; padding:11px; background:var(--rust); color:white; border:none; border-radius:6px; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer; margin-bottom:10px;">Add expense</button>
 
@@ -102,9 +249,9 @@
   <div id="ooty-bill-status" style="font-size:12px; text-align:center; opacity:0.65; margin-bottom:8px; min-height:16px;"></div>
   <div id="ooty-bill-confirm" style="display:none; margin-bottom:18px; padding:10px; background:#fff; border:1px solid var(--line); border-radius:8px;">
     <div style="font-size:12px; opacity:0.7; margin-bottom:6px;">Detected — confirm or correct before saving:</div>
-    <div style="display:flex; gap:8px; margin-bottom:8px;">
-      <input id="ooty-bill-label-input" placeholder="What for" style="flex:1; padding:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:13px;">
-      <input id="ooty-bill-amt-input" type="number" placeholder="₹" style="width:70px; padding:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:13px;">
+    <div class="ooty-expense-form" style="margin-bottom:8px;">
+      <input id="ooty-bill-label-input" class="ooty-input-what" placeholder="What for" style="padding:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:13px;">
+      <input id="ooty-bill-amt-input" class="ooty-input-amt" type="number" placeholder="₹" style="padding:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:13px;">
     </div>
     <div style="display:flex; gap:8px;">
       <button data-action="cancel-bill" style="flex:1; padding:8px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">Discard</button>
@@ -380,7 +527,7 @@
           (editMode ? '<button data-action="open-modal" data-day="'+dayIdx+'" data-item="'+itemIdx+'" style="flex-shrink:0; background:transparent; border:none; cursor:pointer; font-size:14px; opacity:0.5; padding:2px 4px;">✏️</button>' : '')+
           '</div>';
       }).join('');
-      return '<div style="margin-bottom:20px;">'+
+      return '<div class="ooty-day-card" style="margin-bottom:20px; animation-delay:'+(dayIdx*0.06)+'s;">'+
         '<div style="display:flex; justify-content:space-between; align-items:baseline;">'+
         '<div style="font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--rust); font-weight:bold;">'+escapeHtml(day.day)+'</div>'+
         (editMode ? '<button data-action="open-modal" data-day="'+dayIdx+'" data-item="" style="font-size:12px; background:transparent; border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; font-family:inherit;">+ Add</button>' : '')+
@@ -498,10 +645,10 @@
     }
     const sorted = items.map((it,idx)=>({it,idx})).reverse();
     list.innerHTML = sorted.map(({it,idx})=>{
-      return '<div style="display:flex; gap:10px; align-items:center; padding:8px 0; border-bottom:1px solid var(--line);">'+
-      (it.imgUrl ? '<img src="'+escapeAttr(it.imgUrl)+'" style="width:36px; height:36px; object-fit:cover; border-radius:5px; flex-shrink:0;">' : '')+
-      '<span style="flex:1;"><b>'+escapeHtml(it.who)+'</b> · '+escapeHtml(it.what)+'</span>'+
-      '<span>₹'+Number(it.amt||0).toLocaleString('en-IN')+'</span>'+
+      return '<div class="ooty-expense-row">'+
+      (it.imgUrl ? '<img src="'+escapeAttr(it.imgUrl)+'">' : '')+
+      '<span class="ooty-expense-desc"><b>'+escapeHtml(it.who)+'</b> · '+escapeHtml(it.what)+'</span>'+
+      '<span class="ooty-expense-amt">₹'+Number(it.amt||0).toLocaleString('en-IN')+'</span>'+
       (editMode ? '<button data-action="delete-expense" data-idx="'+idx+'" style="background:transparent; border:none; cursor:pointer; color:var(--rust); font-size:16px; padding:2px 4px; flex-shrink:0;">×</button>' : '')+
       '</div>';
     }).join('');
