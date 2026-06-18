@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ooty Ride Plan</title>
+<style>
+  .ooty-expense-form{
+    display:flex;
+    gap:8px;
+    margin-bottom:10px;
+  }
+  .ooty-expense-form input{
+    box-sizing:border-box;
+  }
+  .ooty-input-who{ width:90px; }
+  .ooty-input-what{ flex:1; }
+  .ooty-input-amt{ width:70px; }
+
+  @media (max-width: 768px){
+    .ooty-expense-form{
+      flex-direction:column;
+    }
+    .ooty-input-who,
+    .ooty-input-what,
+    .ooty-input-amt{
+      width:100%;
+    }
+  }
+
+  .ooty-expense-row{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    padding:8px 0;
+    border-bottom:1px solid var(--line, #d9cdb4);
+  }
+  .ooty-expense-row img{
+    width:36px;
+    height:36px;
+    object-fit:cover;
+    border-radius:5px;
+    flex-shrink:0;
+  }
+  .ooty-expense-desc{
+    flex:1;
+    min-width:0;
+    overflow-wrap:break-word;
+    word-break:break-word;
+  }
+  .ooty-expense-amt{
+    flex-shrink:0;
+    white-space:nowrap;
+  }
+
+  /* ---------- Ooty theme: subtle animations & decorative widgets ---------- */
+  @keyframes ooty-fade-in{
+    from{ opacity:0; transform:translateY(6px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  @keyframes ooty-mist-drift{
+    0%{ transform:translateX(-6%); }
+    50%{ transform:translateX(6%); }
+    100%{ transform:translateX(-6%); }
+  }
+  @keyframes ooty-train-travel{
+    0%{ left:-12%; }
+    100%{ left:112%; }
+  }
+  @keyframes ooty-elephant-walk{
+    0%{ left:-15%; }
+    100%{ left:115%; }
+  }
+  @keyframes ooty-elephant-bob{
+    0%, 100%{ transform:translateY(0); }
+    50%{ transform:translateY(-3px); }
+  }
+  @keyframes ooty-puff{
+    0%{ opacity:0.55; transform:translateY(0) scale(0.7); }
+    100%{ opacity:0; transform:translateY(-10px) scale(1.3); }
+  }
+  @keyframes ooty-leaf-sway{
+    0%, 100%{ transform:rotate(-4deg); }
+    50%{ transform:rotate(4deg); }
+  }
+
+  .ooty-header-art{
+    position:relative;
+    overflow:hidden;
+    height:46px;
+    margin-top:10px;
+    border-radius:8px;
+  }
+  .ooty-header-art svg{
+    position:absolute;
+    bottom:0; left:0;
+    width:140%;
+    height:100%;
+    animation:ooty-mist-drift 18s ease-in-out infinite;
+  }
+  .ooty-header-train{
+    position:absolute;
+    bottom:10px;
+    font-size:15px;
+    animation:ooty-train-travel 16s linear infinite;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,0.35));
+  }
+
+  .ooty-elephant-strip{
+    position:relative;
+    height:30px;
+    overflow:hidden;
+    background:linear-gradient(180deg, #e8e0cb 0%, #ddd2b4 100%);
+    border-bottom:1px solid var(--line, #d9cdb4);
+  }
+  .ooty-elephant-walker{
+    position:absolute;
+    bottom:2px;
+    font-size:18px;
+    animation:ooty-elephant-walk 19s linear infinite, ooty-elephant-bob 0.6s ease-in-out infinite;
+  }
+
+  .ooty-elephant-strip{
+    position:relative;
+    height:30px;
+    overflow:hidden;
+    background:linear-gradient(180deg, #e8e0cb 0%, #ddd2b4 100%);
+    border-bottom:1px solid var(--line, #d9cdb4);
+  }
+
+  .ooty-day-card{
+    animation:ooty-fade-in 0.45s ease-out both;
+  }
+
+  .ooty-tab-btn{
+    transition:background 0.25s ease, opacity 0.25s ease, transform 0.15s ease;
+  }
+  .ooty-tab-btn:hover{
+    transform:translateY(-1px);
+  }
+
+  button{
+    transition:transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+  }
+  button:hover{
+    transform:translateY(-1px);
+  }
+  button:active{
+    transform:translateY(0);
+  }
+
+  .ooty-leaf-badge{
+    display:inline-block;
+    animation:ooty-leaf-sway 3s ease-in-out infinite;
+    transform-origin:50% 0%;
+  }
+
+  #ooty-pane-plan, #ooty-pane-money{
+    animation:ooty-fade-in 0.3s ease-out both;
+  }
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body style="margin:0; padding:20px; background:#eee8da; font-family: Georgia, serif;">
+
+<div id="ooty-signin-screen" style="max-width:720px; margin:60px auto; text-align:center; padding:40px 24px; background:#f6f1e7; border-radius:14px;">
+  <div style="font-size:24px; font-weight:bold; color:#2b2420; margin-bottom:8px;">Ooty Ride Plan</div>
+  <div style="font-size:14px; color:#5a5248; margin-bottom:24px;">Sign in with Google to load your trip data</div>
+  <div id="ooty-google-btn-container" style="display:flex; justify-content:center;"></div>
+  <div id="ooty-signin-status" style="font-size:13px; color:#b5552d; margin-top:14px; min-height:18px;"></div>
+</div>
+
+<div id="ooty-app" style="display:none; --ink:#2b2420; --paper:#f6f1e7; --pine:#3f5b4a; --rust:#b5552d; --gold:#c69a3e; --line:#d9cdb4; font-family: 'Georgia', serif; background:var(--paper); color:var(--ink); max-width:720px; margin:0 auto; border-radius:14px; overflow:hidden; box-shadow:0 2px 18px rgba(0,0,0,0.12);">
+
+<div style="background:var(--pine); color:var(--paper); padding:22px 24px 18px;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+    <div>
+      <div style="font-size:12px; letter-spacing:2px; text-transform:uppercase; opacity:0.75;">25–29 June · Bangalore → Ooty</div>
+      <div style="font-size:28px; font-weight:bold; margin-top:4px;">Ooty Ride Plan</div>
+      <div style="font-size:13px; opacity:0.85; margin-top:2px;">Raks &amp; Prateeksha · Yamaha Ray ZR 125 · ₹20,000 budget</div>
+    </div>
+    <div style="text-align:right; flex-shrink:0; margin-left:12px;">
+      <div id="ooty-user-name" style="font-size:12px; opacity:0.85;"></div>
+      <button data-action="sign-out" style="margin-top:6px; font-size:11px; padding:4px 10px; background:rgba(255,255,255,0.15); color:white; border:1px solid rgba(255,255,255,0.3); border-radius:6px; cursor:pointer; font-family:inherit;">Sign out</button>
+    </div>
+  </div>
+  <div class="ooty-header-art" aria-hidden="true">
+    <svg viewBox="0 0 400 60" preserveAspectRatio="none">
+      <polygon points="0,60 40,18 80,60" fill="#2f4438" opacity="0.55"/>
+      <polygon points="60,60 110,8 160,60" fill="#2f4438" opacity="0.7"/>
+      <polygon points="140,60 190,22 240,60" fill="#28392e" opacity="0.6"/>
+      <polygon points="220,60 270,4 320,60" fill="#28392e" opacity="0.75"/>
+      <polygon points="300,60 345,20 400,60" fill="#2f4438" opacity="0.55"/>
+      <ellipse cx="70" cy="22" rx="34" ry="7" fill="#f6f1e7" opacity="0.18"/>
+      <ellipse cx="230" cy="14" rx="44" ry="8" fill="#f6f1e7" opacity="0.14"/>
+      <ellipse cx="340" cy="26" rx="30" ry="6" fill="#f6f1e7" opacity="0.16"/>
+    </svg>
+    <span class="ooty-header-train">🚂💨</span>
+  </div>
+</div>
+
+<div class="ooty-elephant-strip" aria-hidden="true">
+  <span class="ooty-elephant-walker">🐘</span>
+</div>
+
+<div style="display:flex; border-bottom:1px solid var(--line);">
+  <button data-action="show-tab" data-tab="plan" id="ooty-tab-plan" class="ooty-tab-btn" style="flex:1; padding:13px; background:var(--gold); color:var(--ink); border:none; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer;">Itinerary</button>
+  <button data-action="show-tab" data-tab="money" id="ooty-tab-money" class="ooty-tab-btn" style="flex:1; padding:13px; background:transparent; color:var(--ink); border:none; font-family:inherit; font-size:14px; cursor:pointer; opacity:0.6;">Expenses</button>
+</div>
+
+
+<div id="ooty-pane-plan" style="padding:20px 22px 26px;">
+  <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px;">
+    <button data-action="undo-edit" id="ooty-undo-btn" style="display:none; font-size:12px; padding:6px 12px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; color:var(--rust); font-family:inherit;">↩ Undo last edit</button>
+    <button data-action="toggle-edit-mode" id="ooty-edit-toggle" style="font-size:12px; padding:6px 12px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; color:var(--ink); font-family:inherit;">✏️ Edit</button>
+    <button data-action="refresh" style="font-size:12px; padding:6px 12px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; color:var(--ink); font-family:inherit;">⟳ Refresh</button>
+  </div>
+  <div id="ooty-sync-status" style="font-size:11px; opacity:0.55; margin-bottom:10px; min-height:14px;"></div>
+  <div id="ooty-itinerary-days"></div>
+  <div id="ooty-item-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:50; align-items:center; justify-content:center; padding:20px;">
+    <div style="background:var(--paper); border-radius:12px; padding:20px; max-width:380px; width:100%;">
+      <div id="ooty-modal-title" style="font-weight:bold; font-size:16px; margin-bottom:12px;">Add item</div>
+      <input id="ooty-modal-time" placeholder="Time / heading (e.g. 9:00 AM — Breakfast)" style="width:100%; padding:9px; margin-bottom:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px; box-sizing:border-box;">
+      <textarea id="ooty-modal-note" placeholder="Note (cost, tip, detail)" style="width:100%; padding:9px; margin-bottom:12px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px; box-sizing:border-box; min-height:60px;"></textarea>
+      <div style="display:flex; gap:8px;">
+        <button data-action="close-modal" style="flex:1; padding:10px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; font-family:inherit;">Cancel</button>
+        <button data-action="confirm-modal" style="flex:1; padding:10px; background:var(--pine); color:white; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:bold;">Save</button>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:18px; padding:12px 14px; background:#fff8e9; border:1px solid var(--line); border-radius:8px; font-size:13px; line-height:1.5;">
+    <b>Ride notes:</b> Fill tank before Bandipur both ways (no pumps in forest, closed 9 PM–6 AM). Rain ponchos on top of bag. Engine-brake on descents. Keep luggage under 10 kg, centred on rear seat with a bungee net.
+  </div>
+</div>
+
+<div id="ooty-pane-money" style="display:none; padding:20px 22px 26px;">
+
+  <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;">
+    <div style="font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--pine); font-weight:bold;">Budget plan</div>
+    <button data-action="toggle-edit-mode" id="ooty-edit-toggle-money" style="font-size:12px; padding:5px 10px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; color:var(--ink); font-family:inherit;">✏️ Edit</button>
+  </div>
+  <div style="font-size:12px; opacity:0.65; margin-bottom:14px;">₹20,000 total</div>
+
+  <table style="width:100%; font-size:14px; border-collapse:collapse; margin-bottom:20px;">
+    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Fuel</td><td style="text-align:right; padding:6px 0;">₹1,200</td></tr>
+    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Hotels (4 nights)</td><td style="text-align:right; padding:6px 0;">₹8,000</td></tr>
+    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Food</td><td style="text-align:right; padding:6px 0;">₹4,200</td></tr>
+    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Sightseeing</td><td style="text-align:right; padding:6px 0;">₹1,300</td></tr>
+    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Shopping</td><td style="text-align:right; padding:6px 0;">₹700</td></tr>
+    <tr><td style="padding:6px 0; font-weight:bold;">Emergency buffer</td><td style="text-align:right; padding:6px 0; font-weight:bold;">₹4,800</td></tr>
+  </table>
+
+  <div id="ooty-budget-widget" style="display:flex; gap:10px; margin-bottom:20px;">
+    <div style="flex:1; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.6;">Spent</div>
+      <div id="ooty-spent-total" style="font-size:20px; font-weight:bold; color:var(--rust);">₹0</div>
+    </div>
+    <div style="flex:1; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.6;"><span class="ooty-leaf-badge">🍃</span> Remaining</div>
+      <div id="ooty-remaining-total" style="font-size:20px; font-weight:bold; color:var(--pine);">₹20,000</div>
+    </div>
+  </div>
+
+  <div style="font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--pine); font-weight:bold; margin-bottom:10px;">Log an expense</div>
+  <div class="ooty-expense-form">
+    <input id="ooty-who" class="ooty-input-who" placeholder="Name" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+    <input id="ooty-what" class="ooty-input-what" placeholder="What for" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+    <input id="ooty-amt" class="ooty-input-amt" type="number" placeholder="₹" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+  </div>
+  <button data-action="add-expense" style="width:100%; padding:11px; background:var(--rust); color:white; border:none; border-radius:6px; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer; margin-bottom:10px;">Add expense</button>
+
+  <input id="ooty-bill-file" type="file" accept="image/*" capture="environment" style="display:none;">
+  <button data-action="trigger-bill-upload" style="width:100%; padding:11px; background:var(--pine); color:white; border:none; border-radius:6px; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer; margin-bottom:6px;">📷 Upload bill photo (scans on-device)</button>
+  <div id="ooty-bill-status" style="font-size:12px; text-align:center; opacity:0.65; margin-bottom:8px; min-height:16px;"></div>
+  <div id="ooty-bill-confirm" style="display:none; margin-bottom:18px; padding:10px; background:#fff; border:1px solid var(--line); border-radius:8px;">
+    <div style="font-size:12px; opacity:0.7; margin-bottom:6px;">Detected — confirm or correct before saving:</div>
+    <div class="ooty-expense-form" style="margin-bottom:8px;">
+      <input id="ooty-bill-label-input" class="ooty-input-what" placeholder="What for" style="padding:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:13px;">
+      <input id="ooty-bill-amt-input" class="ooty-input-amt" type="number" placeholder="₹" style="padding:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:13px;">
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button data-action="cancel-bill" style="flex:1; padding:8px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">Discard</button>
+      <button data-action="save-bill" style="flex:1; padding:8px; background:var(--rust); color:white; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:bold; font-size:13px;">Save expense</button>
+    </div>
+  </div>
+
+  <div id="ooty-expense-list" style="font-size:14px;"></div>
+
+</div>
+</div>
+
+<script>
+(function(){
+
+  // ---------- Config ----------
+  // Paste your Google OAuth Client ID below (from Google Cloud Console > Credentials)
+  const GOOGLE_CLIENT_ID = '743008992263-q9pfclp7bngviru5bp8gscud5pfcrbgk.apps.googleusercontent.com';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+  const STORAGE_QUOTA_WARN_BYTES = 4 * 1024 * 1024; // warn if a single file exceeds ~4MB
+
+  let accessToken = null;
+  let tokenClient = null;
+
+  // ---------- Minimal Google Drive (appDataFolder) key-value store ----------
+  // Mirrors the previous window.storage.get/set/delete(key, shared) shape,
+  // but "shared" maps to a single shared file both users read by knowing the same fileName convention.
+  const DataStore = {
+    _fileIdCache: {},
+
+    async _findFileId(name){
+      if(this._fileIdCache[name]) return this._fileIdCache[name];
+      const res = await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%27'+encodeURIComponent(name)+'%27&fields=files(id,name)', {
+        headers: { Authorization: 'Bearer '+accessToken }
+      });
+      if(!res.ok) throw new Error('drive-list-failed:'+res.status);
+      const data = await res.json();
+      const file = (data.files||[])[0];
+      if(file){ this._fileIdCache[name] = file.id; return file.id; }
+      return null;
+    },
+
+    async get(key){
+      try{
+        const fileId = await this._findFileId(key+'.json');
+        if(!fileId) return null;
+        const res = await fetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media', {
+          headers: { Authorization: 'Bearer '+accessToken }
+        });
+        if(!res.ok) return null;
+        const text = await res.text();
+        return { key, value: text };
+      }catch(e){
+        console.warn('DataStore.get failed for', key, e);
+        return null;
+      }
+    },
+
+    async set(key, value){
+      const bytes = new Blob([value]).size;
+      if(bytes > STORAGE_QUOTA_WARN_BYTES){
+        console.warn('DataStore.set: value for', key, 'is', bytes, 'bytes — may be slow or hit quota.');
+      }
+      const name = key+'.json';
+      const fileId = await this._findFileId(name);
+      const metadata = { name, parents: fileId ? undefined : ['appDataFolder'] };
+      const boundary = '-------ooty'+Date.now();
+      const body =
+        '--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n'+
+        '--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+value+'\r\n'+
+        '--'+boundary+'--';
+      const url = fileId
+        ? 'https://www.googleapis.com/upload/drive/v3/files/'+fileId+'?uploadType=multipart'
+        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+      const method = fileId ? 'PATCH' : 'POST';
+      try{
+        const res = await fetch(url, {
+          method,
+          headers: { Authorization: 'Bearer '+accessToken, 'Content-Type': 'multipart/related; boundary='+boundary },
+          body
+        });
+        if(!res.ok){
+          const errText = await res.text().catch(()=> '');
+          throw new Error('drive-write-failed:'+res.status+' '+errText);
+        }
+        const json = await res.json();
+        this._fileIdCache[name] = json.id;
+        return { key, value };
+      }catch(e){
+        console.error('DataStore.set failed for', key, e);
+        throw e;
+      }
+    },
+
+    async delete(key){
+      try{
+        const fileId = await this._findFileId(key+'.json');
+        if(!fileId) return null;
+        await fetch('https://www.googleapis.com/drive/v3/files/'+fileId, {
+          method: 'DELETE',
+          headers: { Authorization: 'Bearer '+accessToken }
+        });
+        delete this._fileIdCache[key+'.json'];
+        return { key, deleted:true };
+      }catch(e){
+        console.warn('DataStore.delete failed for', key, e);
+        return null;
+      }
+    }
+  };
+
+  function setSyncStatus(msg, isError){
+    const el = document.getElementById('ooty-sync-status');
+    if(!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--rust)' : '';
+  }
+
+  function safeJsonParse(text, fallback){
+    if(!text || typeof text !== 'string') return fallback;
+    try{
+      const parsed = JSON.parse(text);
+      return parsed;
+    }catch(e){
+      console.warn('JSON parse failed, using fallback. Raw:', text && text.slice(0,200));
+      return fallback;
+    }
+  }
+
+  // ---------- Base itinerary (immutable template; never mutated directly) ----------
+  const BASE_ITINERARY = [
+    { id:'day1', day:'Day 1 · 25th', title:'Bangalore → Ooty (270 km)', items:[
+      {id:'d1-1', t:'6:00 AM — Depart Bangalore', d:'Slightly later start — still leaves enough buffer to clear Bandipur before evening closure.'},
+      {id:'d1-2', t:'8:30 AM — Breakfast stop, Mysuru/Maddur', d:'~₹400. Quick tiffin, fuel top-up.'},
+      {id:'d1-3', t:'11:00 AM — Bandipur forest stretch', d:'Fill tank fully at Gundlupet before entering — no pumps inside. Closed 9 PM–6 AM, so plenty of margin.'},
+      {id:'d1-4', t:'1:30 PM — Lunch, Gudalur', d:'~₹500.'},
+      {id:'d1-5', t:'4:00 PM — Arrive Ooty, check in', d:'Settle into hotel, rest after the ride.'},
+      {id:'d1-6', t:'Evening — Charing Cross walk + dinner', d:'Light dinner ~₹400, early sleep — long day behind you.'},
+    ]},
+    { id:'day2', day:'Day 2 · 26th', title:'Sunrise, falls & lake adventure', items:[
+      {id:'d2-1', t:'6:30 AM — Doddabetta Peak sunrise', d:'Highest point in the Nilgiris, best sunrise + couple photo spot. ~30 min from town.'},
+      {id:'d2-2', t:'8:00 AM — Breakfast near Doddabetta', d:'~₹250.'},
+      {id:'d2-3', t:'9:30 AM — Kalhatti Falls forest trek', d:'Easy, ~3 km round trip, 1–1.5 hrs. Best before crowds/rain.'},
+      {id:'d2-4', t:'12:00 PM — Ride to Pykara', d:'Fuel up locally if needed.'},
+      {id:'d2-5', t:'1:00 PM — Lunch near Pykara', d:'~₹500.'},
+      {id:'d2-6', t:'2:00 PM — Pykara Lake coracle boating', d:'Traditional round-boat ride, ~₹400/30 min — fun, romantic.'},
+      {id:'d2-7', t:'3:30 PM — Pykara Falls viewpoint', d:'Short walk from boating point.'},
+      {id:'d2-8', t:'Evening — Sunset, Ooty/Avalanche Lake', d:'Quiet, fewer crowds than daytime. Stay overnight in Ooty.'},
+    ]},
+    { id:'day3', day:'Day 3 · 27th', title:'Tea estate & easy Ooty day', items:[
+      {id:'d3-1', t:'Morning — Tea estate visit + tasting', d:'~₹100–150 entry. Factory tour, photo spots among tea rows.'},
+      {id:'d3-2', t:'Afternoon — Botanical Garden or Avalanche Lake', d:'Pick whichever feels less crowded on the day.'},
+      {id:'d3-3', t:'Evening — Pack, early night', d:'8 AM Toy Train tomorrow, so no late nights.'},
+    ]},
+    { id:'day4', day:'Day 4 · 28th', title:'Coonoor Toy Train, then back to Ooty', items:[
+      {id:'d4-1', t:'Morning — Free in Ooty', d:'Relaxed morning, last-minute shopping (tea, chocolates, eucalyptus oil) — no rush since the train is in the afternoon.'},
+      {id:'d4-2', t:'1:30 PM — Ride Udagamandalam (Ooty) → Coonoor station', d:'~30–40 min ride. Park bike safely near station.'},
+      {id:'d4-3', t:'2:50 PM — Nilgiri Toy Train, Ooty → Coonoor', d:'Departs 14:50, arrives Coonoor 15:55 (~1 hr 5 min). Heritage scenic ride — keep camera ready.'},
+      {id:'d4-4', t:'4:00 PM — Coonoor sightseeing', d:'Dolphin\u2019s Nose viewpoint + Catherine Falls view, evening tea/snacks.'},
+      {id:'d4-5', t:'Evening — Ride back to Ooty, check in', d:'Last night in Ooty — pack bags tonight since tomorrow is an early start.'},
+    ]},
+    { id:'day5', day:'Day 5 · 29th', title:'Early morning return to Bangalore', items:[
+      {id:'d5-1', t:'Early morning — Depart Ooty', d:'Start before sunrise to cover the 270 km comfortably and clear Bandipur in daylight.'},
+      {id:'d5-2', t:'Breakfast — Gudalur/Mysuru route', d:'~₹400.'},
+      {id:'d5-3', t:'Bandipur stretch', d:'Cross with full tank from Gundlupet side; should be smooth given the early start.'},
+      {id:'d5-4', t:'Lunch — Mysuru/Maddur', d:'~₹500.'},
+      {id:'d5-5', t:'Reach Bangalore', d:'Trip wrap-up — total ride ~620 km over the trip.'},
+    ]},
+  ];
+
+  // ---------- Derived itinerary (computed fresh each render — never mutates BASE_ITINERARY) ----------
+  function buildItinerary(customItems){
+    return BASE_ITINERARY.map((day, dayIdx)=>{
+      const overrides = (customItems['overrides_'+dayIdx]) || {};
+      const added = (customItems['added_'+dayIdx]) || [];
+      const seenIds = new Set();
+      const items = [];
+      day.items.forEach(orig=>{
+        if(seenIds.has(orig.id)) return;
+        seenIds.add(orig.id);
+        const ov = overrides[orig.id];
+        items.push(ov ? { id:orig.id, t:ov.t, d:ov.d } : { id:orig.id, t:orig.t, d:orig.d });
+      });
+      added.forEach(a=>{
+        if(!a || !a.id || seenIds.has(a.id)) return;
+        seenIds.add(a.id);
+        items.push({ id:a.id, t:a.t, d:a.d });
+      });
+      return { day: day.day, title: day.title, items };
+    });
+  }
+
+  let ITINERARY = buildItinerary({});
+  let customItems = {};
+  let checkedState = {};
+  let editMode = false;
+
+  function showTab(tab){
+    document.getElementById('ooty-pane-plan').style.display = tab==='plan' ? 'block':'none';
+    document.getElementById('ooty-pane-money').style.display = tab==='money' ? 'block':'none';
+    document.getElementById('ooty-tab-plan').style.background = tab==='plan' ? 'var(--gold)':'transparent';
+    document.getElementById('ooty-tab-plan').style.opacity = tab==='plan' ? '1':'0.6';
+    document.getElementById('ooty-tab-money').style.background = tab==='money' ? 'var(--gold)':'transparent';
+    document.getElementById('ooty-tab-money').style.opacity = tab==='money' ? '1':'0.6';
+    if(tab==='money') loadExpenses();
+  }
+
+  async function toggleEditMode(){
+    editMode = !editMode;
+    const label = editMode ? '✓ Done' : '✏️ Edit';
+    const t1 = document.getElementById('ooty-edit-toggle');
+    const t2 = document.getElementById('ooty-edit-toggle-money');
+    if(t1) t1.textContent = label;
+    if(t2) t2.textContent = label;
+    const undoBtn = document.getElementById('ooty-undo-btn');
+    if(undoBtn){
+      if(editMode){
+        let hasUndo = false;
+        try{
+          const r = await DataStore.get('ooty-itinerary-undo');
+          hasUndo = !!(r && r.value);
+        }catch(e){}
+        undoBtn.style.display = hasUndo ? 'inline-block' : 'none';
+      } else {
+        undoBtn.style.display = 'none';
+      }
+    }
+    renderItinerary();
+    loadExpenses();
+  }
+
+  async function loadChecks(){
+    setSyncStatus('Syncing…');
+    try{
+      const r = await DataStore.get('ooty-trip-checks');
+      checkedState = safeJsonParse(r && r.value, {});
+    }catch(e){ checkedState = {}; }
+    await loadItineraryData();
+    renderItinerary();
+    setSyncStatus('Synced just now');
+  }
+
+  async function toggleCheck(id){
+    checkedState[id] = !checkedState[id];
+    renderItinerary();
+    try{ await DataStore.set('ooty-trip-checks', JSON.stringify(checkedState)); }
+    catch(e){ setSyncStatus('Could not save — check connection.', true); }
+  }
+
+  async function loadItineraryData(){
+    try{
+      const r = await DataStore.get('ooty-itinerary-edits');
+      customItems = safeJsonParse(r && r.value, {});
+    }catch(e){ customItems = {}; }
+    ITINERARY = buildItinerary(customItems);
+  }
+
+  async function saveItineraryData(){
+    try{ await DataStore.set('ooty-itinerary-edits', JSON.stringify(customItems)); }
+    catch(e){ setSyncStatus('Could not save edit — check connection.', true); throw e; }
+  }
+
+  function renderItinerary(){
+    const wrap = document.getElementById('ooty-itinerary-days');
+    wrap.innerHTML = ITINERARY.map((day, dayIdx)=>{
+      const rows = day.items.map((it, itemIdx)=>{
+        const checked = !!checkedState[it.id];
+        return '<div style="display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); align-items:flex-start;">'+
+          '<div data-action="toggle-check" data-id="'+escapeAttr(it.id)+'" style="flex-shrink:0; width:18px; height:18px; margin-top:2px; border:2px solid var(--pine); border-radius:4px; background:'+(checked?'var(--pine)':'transparent')+'; display:flex; align-items:center; justify-content:center; color:white; font-size:12px; cursor:pointer;">'+(checked?'✓':'')+'</div>'+
+          '<div data-action="toggle-check" data-id="'+escapeAttr(it.id)+'" style="flex:1; cursor:pointer; '+(checked?'opacity:0.5; text-decoration:line-through;':'')+'">'+
+          '<div style="font-weight:bold; font-size:14px;">'+escapeHtml(it.t)+'</div>'+
+          '<div style="font-size:13px; opacity:0.75; margin-top:1px;">'+escapeHtml(it.d)+'</div></div>'+
+          (editMode ? '<button data-action="open-modal" data-day="'+dayIdx+'" data-item="'+itemIdx+'" style="flex-shrink:0; background:transparent; border:none; cursor:pointer; font-size:14px; opacity:0.5; padding:2px 4px;">✏️</button>' : '')+
+          '</div>';
+      }).join('');
+      return '<div class="ooty-day-card" style="margin-bottom:20px; animation-delay:'+(dayIdx*0.06)+'s;">'+
+        '<div style="display:flex; justify-content:space-between; align-items:baseline;">'+
+        '<div style="font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--rust); font-weight:bold;">'+escapeHtml(day.day)+'</div>'+
+        (editMode ? '<button data-action="open-modal" data-day="'+dayIdx+'" data-item="" style="font-size:12px; background:transparent; border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; font-family:inherit;">+ Add</button>' : '')+
+        '</div>'+
+        '<div style="font-weight:bold; font-size:16px; margin:3px 0 8px;">'+escapeHtml(day.title)+'</div>'+
+        rows+'</div>';
+    }).join('');
+  }
+
+  let modalCtx = { dayIdx:null, itemIdx:null };
+
+  function openModal(dayIdx, itemIdx){
+    modalCtx = { dayIdx, itemIdx };
+    const title = document.getElementById('ooty-modal-title');
+    const timeInput = document.getElementById('ooty-modal-time');
+    const noteInput = document.getElementById('ooty-modal-note');
+    if(itemIdx === null){
+      title.textContent = 'Add item to ' + ITINERARY[dayIdx].day;
+      timeInput.value = '';
+      noteInput.value = '';
+    } else {
+      const it = ITINERARY[dayIdx].items[itemIdx];
+      title.textContent = 'Edit item';
+      timeInput.value = it.t;
+      noteInput.value = it.d;
+    }
+    document.getElementById('ooty-item-modal').style.display = 'flex';
+  }
+
+  function closeModal(){
+    document.getElementById('ooty-item-modal').style.display = 'none';
+  }
+
+  async function confirmModal(){
+    const t = document.getElementById('ooty-modal-time').value.trim();
+    const d = document.getElementById('ooty-modal-note').value.trim();
+    if(!t) return;
+    const isNew = modalCtx.itemIdx === null;
+    const dayIdx = modalCtx.dayIdx;
+    const msg = isNew ? 'Add "'+t+'" to '+ITINERARY[dayIdx].day+'?' : 'Save changes to this item?';
+    if(!confirm(msg)) return;
+
+    const prevSnapshot = JSON.stringify(customItems);
+
+    if(isNew){
+      const newId = 'custom-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+      const newItem = { id:newId, t, d };
+      const key = 'added_'+dayIdx;
+      if(!customItems[key]) customItems[key] = [];
+      customItems[key].push(newItem);
+    } else {
+      const it = ITINERARY[dayIdx].items[modalCtx.itemIdx];
+      const key = 'overrides_'+dayIdx;
+      if(!customItems[key]) customItems[key] = {};
+      customItems[key][it.id] = { t, d };
+    }
+    try{
+      await DataStore.set('ooty-itinerary-undo', prevSnapshot);
+      await saveItineraryData();
+    }catch(e){
+      alert('Could not save — check your connection and try again.');
+      return;
+    }
+    ITINERARY = buildItinerary(customItems);
+    renderItinerary();
+    closeModal();
+  }
+
+  async function undoLastEdit(){
+    let prevSnapshot = null;
+    try{
+      const r = await DataStore.get('ooty-itinerary-undo');
+      prevSnapshot = r && r.value;
+    }catch(e){}
+    const parsedPrev = safeJsonParse(prevSnapshot, null);
+    if(!parsedPrev){ alert('No previous edit to undo.'); return; }
+    if(!confirm('Revert the last itinerary edit?')) return;
+    customItems = parsedPrev;
+    try{
+      await DataStore.set('ooty-itinerary-edits', JSON.stringify(customItems));
+      await DataStore.delete('ooty-itinerary-undo');
+    }catch(e){
+      alert('Could not undo — check your connection.');
+      return;
+    }
+    ITINERARY = buildItinerary(customItems);
+    renderItinerary();
+    const undoBtn = document.getElementById('ooty-undo-btn');
+    if(undoBtn) undoBtn.style.display = 'none';
+  }
+
+  async function loadExpenses(){
+    let items = [];
+    try{
+      const r = await DataStore.get('ooty-trip-expenses');
+      items = safeJsonParse(r && r.value, []);
+      if(!Array.isArray(items)) items = [];
+    }catch(e){ items = []; }
+    render(items);
+  }
+
+  const TOTAL_BUDGET = 20000;
+
+  function render(items){
+    const list = document.getElementById('ooty-expense-list');
+    const total = items.reduce((s,i)=>s+Number(i.amt||0),0);
+    document.getElementById('ooty-spent-total').textContent = '₹'+total.toLocaleString('en-IN');
+    const remaining = TOTAL_BUDGET - total;
+    const remEl = document.getElementById('ooty-remaining-total');
+    remEl.textContent = '₹'+remaining.toLocaleString('en-IN');
+    remEl.style.color = remaining < 0 ? 'var(--rust)' : 'var(--pine)';
+    if(items.length===0){
+      list.innerHTML = '<div style="opacity:0.55; text-align:center; padding:14px 0;">No expenses logged yet.</div>';
+      return;
+    }
+    const sorted = items.map((it,idx)=>({it,idx})).reverse();
+    list.innerHTML = sorted.map(({it,idx})=>{
+      return '<div class="ooty-expense-row">'+
+      (it.imgUrl ? '<img src="'+escapeAttr(it.imgUrl)+'">' : '')+
+      '<span class="ooty-expense-desc"><b>'+escapeHtml(it.who)+'</b> · '+escapeHtml(it.what)+'</span>'+
+      '<span class="ooty-expense-amt">₹'+Number(it.amt||0).toLocaleString('en-IN')+'</span>'+
+      (editMode ? '<button data-action="delete-expense" data-idx="'+idx+'" style="background:transparent; border:none; cursor:pointer; color:var(--rust); font-size:16px; padding:2px 4px; flex-shrink:0;">×</button>' : '')+
+      '</div>';
+    }).join('');
+  }
+
+  async function withExpenses(mutator){
+    let items = [];
+    try{
+      const r = await DataStore.get('ooty-trip-expenses');
+      items = safeJsonParse(r && r.value, []);
+      if(!Array.isArray(items)) items = [];
+    }catch(e){ items = []; }
+    const result = mutator(items);
+    try{
+      await DataStore.set('ooty-trip-expenses', JSON.stringify(items));
+    }catch(e){
+      alert('Could not save expense — check your connection and try again.');
+      throw e;
+    }
+    render(items);
+    return result;
+  }
+
+  async function deleteExpense(idx){
+    let target = null;
+    await withExpenses((items)=>{ target = items[idx]; });
+    if(!target){ alert('That expense could not be found — list may have changed. Refreshing.'); loadExpenses(); return; }
+    if(!confirm('Delete "'+target.what+'" (₹'+target.amt+')? This cannot be undone.')) return;
+    await withExpenses((items)=>{ items.splice(idx,1); });
+  }
+
+  function escapeHtml(s){
+    return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+
+  async function addExpense(){
+    const who = document.getElementById('ooty-who').value.trim();
+    const what = document.getElementById('ooty-what').value.trim();
+    const amt = Number(document.getElementById('ooty-amt').value);
+    if(!who || !what || !amt || isNaN(amt)) return;
+    await withExpenses((items)=>{ items.push({who, what, amt, t: Date.now()}); });
+    document.getElementById('ooty-who').value='';
+    document.getElementById('ooty-what').value='';
+    document.getElementById('ooty-amt').value='';
+  }
+
+  // ---------- Bill photo: on-device OCR (Tesseract.js) + Drive image upload ----------
+  function compressImage(file, maxDim){
+    return new Promise((resolve,reject)=>{
+      const reader = new FileReader();
+      reader.onload = function(e){
+        const img = new Image();
+        img.onload = function(){
+          let w = img.width, h = img.height;
+          if(w > h && w > maxDim){ h = Math.round(h*maxDim/w); w = maxDim; }
+          else if(h > maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          canvas.toBlob(blob=>resolve({ blob, dataUrl: canvas.toDataURL('image/jpeg', 0.7) }), 'image/jpeg', 0.7);
+        };
+        img.onerror = reject;
+        img.src = e.target.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function guessAmountAndLabel(ocrText){
+    const text = ocrText || '';
+    const amountMatches = [...text.matchAll(/(?:rs\.?|inr|₹)\s*([0-9][0-9,]{0,9}(?:\.[0-9]{1,2})?)/gi)];
+    const plainNumbers = [...text.matchAll(/\b([0-9]{2,6}(?:\.[0-9]{1,2})?)\b/g)];
+    let candidates = amountMatches.map(m=>parseFloat(m[1].replace(/,/g,'')));
+    if(candidates.length===0) candidates = plainNumbers.map(m=>parseFloat(m[1].replace(/,/g,'')));
+    candidates = candidates.filter(n=>!isNaN(n) && n > 0);
+    const amount = candidates.length ? Math.max(...candidates) : null;
+
+    const lower = text.toLowerCase();
+    let label = 'Bill';
+    if(/fuel|petrol|diesel|hp\b|bpcl|iocl/.test(lower)) label = 'Fuel';
+    else if(/hotel|resort|stay|inn|lodge|room/.test(lower)) label = 'Hotel';
+    else if(/restaurant|cafe|food|meal|hotel.*bill|dine/.test(lower)) label = 'Food';
+    else if(/ticket|train|railway|toy train/.test(lower)) label = 'Toy train';
+    else if(/toll|parking/.test(lower)) label = 'Toll/Parking';
+    return { amount, label };
+  }
+
+  let pendingBill = null;
+
+  async function handleBill(file){
+    if(!file) return;
+    const status = document.getElementById('ooty-bill-status');
+    status.textContent = 'Compressing image…';
+    let compressed;
+    try{
+      compressed = await compressImage(file, 900);
+    }catch(e){
+      status.textContent = 'Could not read image.';
+      return;
+    }
+
+    status.textContent = 'Scanning on-device (OCR)… this can take a few seconds';
+    let amount = null, label = 'Bill';
+    try{
+      if(typeof Tesseract === 'undefined') throw new Error('Tesseract not loaded');
+      const result = await Tesseract.recognize(compressed.dataUrl, 'eng');
+      const guess = guessAmountAndLabel(result && result.data && result.data.text);
+      amount = guess.amount;
+      label = guess.label;
+    }catch(e){
+      console.warn('OCR failed', e);
+      status.textContent = 'Could not auto-read the bill — enter details manually below.';
+    }
+
+    pendingBill = { blob: compressed.blob, dataUrl: compressed.dataUrl };
+    document.getElementById('ooty-bill-label-input').value = label;
+    document.getElementById('ooty-bill-amt-input').value = amount || '';
+    document.getElementById('ooty-bill-confirm').style.display = 'block';
+    status.textContent = amount ? 'Detected an amount — please double check it.' : 'Could not detect amount — please enter it.';
+  }
+
+  function cancelBill(){
+    pendingBill = null;
+    document.getElementById('ooty-bill-confirm').style.display = 'none';
+    document.getElementById('ooty-bill-status').textContent = '';
+  }
+
+  async function uploadBillImage(blob){
+    const metadata = { name: 'bill-'+Date.now()+'.jpg', parents: ['appDataFolder'] };
+    const boundary = '-------ootyimg'+Date.now();
+    const arrayBuffer = await blob.arrayBuffer();
+    const base64Data = arrayBufferToBase64(arrayBuffer);
+    const body =
+      '--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n'+
+      '--'+boundary+'\r\nContent-Type: image/jpeg\r\nContent-Transfer-Encoding: base64\r\n\r\n'+base64Data+'\r\n'+
+      '--'+boundary+'--';
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer '+accessToken, 'Content-Type': 'multipart/related; boundary='+boundary },
+      body
+    });
+    if(!res.ok) throw new Error('image-upload-failed:'+res.status);
+    const json = await res.json();
+    return 'https://drive.google.com/uc?id='+json.id;
+  }
+
+  function arrayBufferToBase64(buffer){
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const chunk = 0x8000;
+    for(let i=0;i<bytes.length;i+=chunk){
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+    }
+    return btoa(binary);
+  }
+
+  async function saveBill(){
+    const what = document.getElementById('ooty-bill-label-input').value.trim() || 'Bill';
+    const amt = Number(document.getElementById('ooty-bill-amt-input').value);
+    if(!amt || isNaN(amt)){ alert('Please enter a valid amount.'); return; }
+    const status = document.getElementById('ooty-bill-status');
+    let imgUrl = null;
+    if(pendingBill && pendingBill.blob){
+      status.textContent = 'Uploading photo…';
+      try{ imgUrl = await uploadBillImage(pendingBill.blob); }
+      catch(e){ console.warn('Image upload failed, saving expense without photo.', e); }
+    }
+    await withExpenses((items)=>{
+      items.push({ who:'Bill scan', what, amt, imgUrl, t:Date.now() });
+    });
+    cancelBill();
+    status.textContent = 'Saved.';
+    setTimeout(()=>{ if(status.textContent==='Saved.') status.textContent=''; }, 2500);
+  }
+
+  // ---------- Auth ----------
+  function showApp(name){
+    document.getElementById('ooty-signin-screen').style.display = 'none';
+    document.getElementById('ooty-app').style.display = 'block';
+    document.getElementById('ooty-user-name').textContent = name || '';
+    loadChecks();
+    loadExpenses();
+  }
+
+  function showSignIn(message){
+    document.getElementById('ooty-app').style.display = 'none';
+    document.getElementById('ooty-signin-screen').style.display = 'block';
+    if(message) document.getElementById('ooty-signin-status').textContent = message;
+  }
+
+  function signOut(){
+    accessToken = null;
+    sessionStorage.removeItem('ooty_access_token');
+    showSignIn('Signed out.');
+  }
+
+  function initGoogleAuth(){
+    if(typeof google === 'undefined' || !google.accounts){
+      document.getElementById('ooty-signin-status').textContent = 'Google sign-in script failed to load — check your connection.';
+      return;
+    }
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: (resp)=>{
+        if(resp && resp.access_token){
+          accessToken = resp.access_token;
+          sessionStorage.setItem('ooty_access_token', accessToken);
+          fetchUserInfoAndShowApp();
+        } else {
+          document.getElementById('ooty-signin-status').textContent = 'Sign-in failed — please try again.';
+        }
+      }
+    });
+
+    const btnContainer = document.getElementById('ooty-google-btn-container');
+    const btn = document.createElement('button');
+    btn.textContent = 'Sign in with Google';
+    btn.style.cssText = 'padding:10px 20px; background:#3f5b4a; color:white; border:none; border-radius:8px; font-size:14px; cursor:pointer; font-family:Georgia, serif;';
+    btn.addEventListener('click', ()=> tokenClient.requestAccessToken());
+    btnContainer.innerHTML = '';
+    btnContainer.appendChild(btn);
+
+    const cached = sessionStorage.getItem('ooty_access_token');
+    if(cached){
+      accessToken = cached;
+      fetchUserInfoAndShowApp(true);
+    }
+  }
+
+  async function fetchUserInfoAndShowApp(isRestoredSession){
+    try{
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: 'Bearer '+accessToken }
+      });
+      if(!res.ok) throw new Error('userinfo-failed');
+      const info = await res.json();
+      showApp(info.name || info.email || '');
+    }catch(e){
+      if(isRestoredSession){
+        sessionStorage.removeItem('ooty_access_token');
+        accessToken = null;
+        showSignIn('Session expired — please sign in again.');
+      } else {
+        showApp('');
+      }
+    }
+  }
+
+  // ---------- Event delegation ----------
+  document.addEventListener('click', function(e){
+    const el = e.target.closest('[data-action]');
+    if(!el) return;
+    const action = el.getAttribute('data-action');
+    if(action === 'show-tab') showTab(el.getAttribute('data-tab'));
+    else if(action === 'toggle-edit-mode') toggleEditMode();
+    else if(action === 'refresh') loadChecks();
+    else if(action === 'undo-edit') undoLastEdit();
+    else if(action === 'toggle-check') toggleCheck(el.getAttribute('data-id'));
+    else if(action === 'open-modal'){
+      const dayIdx = Number(el.getAttribute('data-day'));
+      const itemAttr = el.getAttribute('data-item');
+      const itemIdx = itemAttr === '' ? null : Number(itemAttr);
+      openModal(dayIdx, itemIdx);
+    }
+    else if(action === 'close-modal') closeModal();
+    else if(action === 'confirm-modal') confirmModal();
+    else if(action === 'add-expense') addExpense();
+    else if(action === 'delete-expense') deleteExpense(Number(el.getAttribute('data-idx')));
+    else if(action === 'trigger-bill-upload') document.getElementById('ooty-bill-file').click();
+    else if(action === 'cancel-bill') cancelBill();
+    else if(action === 'save-bill') saveBill();
+    else if(action === 'sign-out') signOut();
+  });
+
+  document.getElementById('ooty-bill-file').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    handleBill(file);
+    e.target.value = '';
+  });
+
+  window.addEventListener('load', initGoogleAuth);
+})();
+</script>
+</body>
+</html>
