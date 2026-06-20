@@ -5,6 +5,352 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ooty Ride Plan</title>
 <style>
+  :root {
+    --ink:       #2b2218;
+    --paper:     #f4efe3;
+    --pine:      #2e4d35;
+    --pine-mid:  #3d6647;
+    --pine-lt:   #5a8a62;
+    --rust:      #a84830;
+    --gold:      #b8902a;
+    --gold-lt:   #d4aa40;
+    --mist:      #dde8d8;
+    --line:      #d0c8b0;
+    --card-bg:   #faf6ec;
+    --fog:       #e8f0e0;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: linear-gradient(160deg, #d4e8d0 0%, #c8dfc4 40%, #dce8d8 100%);
+    min-height: 100vh;
+    font-family: Georgia, serif;
+  }
+
+  /* ── Sign-in screen ── */
+  #ooty-signin-screen {
+    box-shadow: 0 8px 40px rgba(46,77,53,0.18);
+    border: 1px solid var(--line);
+  }
+
+  /* ── App shell ── */
+  #ooty-app {
+    box-shadow: 0 4px 32px rgba(46,77,53,0.22), 0 1px 4px rgba(0,0,0,0.08);
+    border: 1px solid rgba(46,77,53,0.12);
+  }
+
+  /* ── Header ── */
+  .ooty-header {
+    background: linear-gradient(135deg, #253d2a 0%, #2e4d35 55%, #3a5e40 100%);
+    padding: 22px 22px 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .ooty-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 80% 110%, rgba(90,138,98,0.35) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 80% at 10% 50%,  rgba(30,60,35,0.5)   0%, transparent 70%);
+    pointer-events: none;
+  }
+  .ooty-header-eyebrow {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #a8c8a0;
+    margin-bottom: 4px;
+  }
+  .ooty-header-title {
+    font-size: clamp(22px, 6vw, 30px);
+    font-weight: bold;
+    color: #f4efe3;
+    letter-spacing: 1px;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+  }
+  .ooty-header-sub {
+    font-size: 12px;
+    color: #a8c8a0;
+    margin-top: 3px;
+  }
+  /* mountain silhouette strip at bottom of header */
+  .ooty-header-mountains {
+    position: relative;
+    height: 38px;
+    margin: 12px -22px -16px;
+    overflow: hidden;
+  }
+  .ooty-header-mountains svg {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  /* ── Tabs ── */
+  .ooty-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--line);
+    background: var(--card-bg);
+  }
+  .ooty-tab {
+    flex: 1;
+    padding: 13px;
+    border: none;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: background 0.2s, color 0.2s, border-bottom 0.2s;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    background: transparent;
+  }
+  .ooty-tab.active {
+    background: var(--paper);
+    color: var(--pine);
+    font-weight: bold;
+    border-bottom-color: var(--pine);
+  }
+  .ooty-tab:not(.active) { color: #888; }
+  .ooty-tab:hover:not(.active) { background: var(--fog); }
+
+  /* ── Panes ── */
+  #ooty-pane-plan, #ooty-pane-money {
+    background: var(--paper);
+    padding: 18px 18px 28px;
+  }
+
+  /* ── Day cards ── */
+  .ooty-day-card {
+    background: var(--card-bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 14px 6px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 4px rgba(46,77,53,0.07);
+  }
+  .ooty-day-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--rust);
+    font-weight: bold;
+    margin-bottom: 2px;
+  }
+  .ooty-day-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--pine);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+
+  /* ── Checklist items ── */
+  .ooty-check-row {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(208,200,176,0.5);
+    align-items: flex-start;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s;
+  }
+  .ooty-check-row:last-child { border-bottom: none; }
+  .ooty-check-row:hover { background: rgba(90,138,98,0.06); }
+  .ooty-check-box {
+    flex-shrink: 0;
+    width: 18px; height: 18px;
+    margin-top: 2px;
+    border: 2px solid var(--pine-lt);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 11px;
+    transition: background 0.15s;
+  }
+  .ooty-check-box.checked { background: var(--pine); border-color: var(--pine); }
+  .ooty-check-text { flex: 1; }
+  .ooty-check-time { font-weight: bold; font-size: 13px; color: var(--ink); }
+  .ooty-check-note { font-size: 12px; color: #7a7060; margin-top: 2px; }
+  .ooty-check-row.done .ooty-check-time,
+  .ooty-check-row.done .ooty-check-note { opacity: 0.4; text-decoration: line-through; }
+
+  /* ── Buttons ── */
+  button {
+    transition: transform 0.14s, box-shadow 0.14s, filter 0.14s;
+  }
+  button:hover { transform: translateY(-1px); filter: brightness(1.06); }
+  button:active { transform: translateY(0); filter: brightness(0.96); }
+
+  .ooty-btn-pine {
+    background: var(--pine);
+    color: #f4efe3;
+    border: none;
+    border-radius: 8px;
+    padding: 11px;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    letter-spacing: 0.4px;
+    box-shadow: 0 2px 8px rgba(46,77,53,0.2);
+  }
+  .ooty-btn-rust {
+    background: var(--rust);
+    color: #f4efe3;
+    border: none;
+    border-radius: 8px;
+    padding: 11px;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    box-shadow: 0 2px 8px rgba(168,72,48,0.2);
+  }
+  .ooty-btn-outline {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: Georgia, serif;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .ooty-btn-outline:hover { background: var(--fog); }
+
+  /* ── Budget widget ── */
+  .ooty-budget-cards {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .ooty-budget-card {
+    flex: 1;
+    border-radius: 10px;
+    padding: 14px 10px;
+    text-align: center;
+    border: 1px solid var(--line);
+  }
+  .ooty-budget-card.spent { background: linear-gradient(135deg,#fff8f4,#fdf0e8); }
+  .ooty-budget-card.remaining { background: linear-gradient(135deg,#f0f8f0,#e4f0e4); }
+  .ooty-budget-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.6; margin-bottom: 4px; }
+  .ooty-budget-amount { font-size: 22px; font-weight: bold; }
+
+  /* ── Inputs ── */
+  .ooty-input {
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    background: #fff;
+    color: var(--ink);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+  .ooty-input:focus {
+    border-color: var(--pine-lt);
+    box-shadow: 0 0 0 3px rgba(90,138,98,0.15);
+  }
+
+  /* ── Expense form responsive ── */
+  .ooty-expense-form { display:flex; gap:8px; margin-bottom:10px; }
+  .ooty-expense-form input { box-sizing:border-box; }
+  .ooty-input-who  { width:90px; }
+  .ooty-input-what { flex:1; }
+  .ooty-input-amt  { width:70px; }
+  @media (max-width:768px){
+    .ooty-expense-form { flex-direction:column; }
+    .ooty-input-who, .ooty-input-what, .ooty-input-amt { width:100%; }
+  }
+
+  /* ── Expense rows ── */
+  .ooty-expense-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 9px 0;
+    border-bottom: 1px solid rgba(208,200,176,0.5);
+  }
+  .ooty-expense-row:last-child { border-bottom: none; }
+  .ooty-expense-row img { width:34px; height:34px; object-fit:cover; border-radius:6px; flex-shrink:0; }
+  .ooty-expense-desc { flex:1; min-width:0; overflow-wrap:break-word; word-break:break-word; font-size:14px; }
+  .ooty-expense-amt  { flex-shrink:0; white-space:nowrap; font-size:14px; font-weight:bold; color:var(--pine); }
+
+  /* ── Ride notes box ── */
+  .ooty-ride-notes {
+    margin-top: 16px;
+    padding: 12px 14px;
+    background: linear-gradient(135deg,#f0f8ee,#e8f4e4);
+    border: 1px solid #c0d8b8;
+    border-left: 3px solid var(--pine-lt);
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #3a4a36;
+  }
+
+  /* ── Section label ── */
+  .ooty-section-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--pine);
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  /* ── Budget table ── */
+  .ooty-budget-table { width:100%; border-collapse:collapse; font-size:14px; margin-bottom:18px; }
+  .ooty-budget-table td { padding:7px 0; border-bottom:1px solid rgba(208,200,176,0.5); }
+  .ooty-budget-table tr:last-child td { border-bottom:none; font-weight:bold; padding-top:10px; }
+  .ooty-budget-table td:last-child { text-align:right; color:var(--pine); }
+
+  /* ── Sync status ── */
+  #ooty-sync-status { font-size:11px; color:var(--pine-lt); margin-bottom:8px; min-height:14px; }
+
+  /* ── Modal ── */
+  #ooty-item-modal > div {
+    border-radius: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+    border: 1px solid var(--line);
+  }
+
+  /* ── Sign-out button ── */
+  .ooty-signout-btn {
+    font-size:11px; padding:4px 10px;
+    background:rgba(255,255,255,0.15);
+    color:#f4efe3;
+    border:1px solid rgba(255,255,255,0.28);
+    border-radius:6px; cursor:pointer;
+    font-family:Georgia,serif;
+    margin-top:6px;
+  }
+
+  @keyframes ooty-fade-in {
+    from { opacity:0; transform:translateY(6px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .ooty-day-card { animation: ooty-fade-in 0.4s ease-out both; }
+  #ooty-pane-plan, #ooty-pane-money { animation: ooty-fade-in 0.3s ease-out both; }
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body style="margin:0; padding:20px; background:#eee8da; font-family: Georgia, serif;">
+
+<div id="ooty-signin-screen"ead>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ooty Ride Plan</title>
+<style>
   .ooty-expense-form{
     display:flex;
     gap:8px;
@@ -53,92 +399,6 @@
     white-space:nowrap;
   }
 
-  /* ---------- Ooty theme: subtle animations & decorative widgets ---------- */
-  @keyframes ooty-fade-in{
-    from{ opacity:0; transform:translateY(6px); }
-    to{ opacity:1; transform:translateY(0); }
-  }
-  @keyframes ooty-mist-drift{
-    0%{ transform:translateX(-6%); }
-    50%{ transform:translateX(6%); }
-    100%{ transform:translateX(-6%); }
-  }
-  @keyframes ooty-train-travel{
-    0%{ left:-12%; }
-    100%{ left:112%; }
-  }
-  @keyframes ooty-elephant-walk{
-    0%{ left:-15%; }
-    100%{ left:115%; }
-  }
-  @keyframes ooty-elephant-bob{
-    0%, 100%{ transform:translateY(0); }
-    50%{ transform:translateY(-3px); }
-  }
-  @keyframes ooty-puff{
-    0%{ opacity:0.55; transform:translateY(0) scale(0.7); }
-    100%{ opacity:0; transform:translateY(-10px) scale(1.3); }
-  }
-  @keyframes ooty-leaf-sway{
-    0%, 100%{ transform:rotate(-4deg); }
-    50%{ transform:rotate(4deg); }
-  }
-
-  .ooty-header-art{
-    position:relative;
-    overflow:hidden;
-    height:46px;
-    margin-top:10px;
-    border-radius:8px;
-  }
-  .ooty-header-art svg{
-    position:absolute;
-    bottom:0; left:0;
-    width:140%;
-    height:100%;
-    animation:ooty-mist-drift 18s ease-in-out infinite;
-  }
-  .ooty-header-train{
-    position:absolute;
-    bottom:10px;
-    font-size:15px;
-    animation:ooty-train-travel 16s linear infinite;
-    filter:drop-shadow(0 1px 1px rgba(0,0,0,0.35));
-  }
-
-  .ooty-elephant-strip{
-    position:relative;
-    height:30px;
-    overflow:hidden;
-    background:linear-gradient(180deg, #e8e0cb 0%, #ddd2b4 100%);
-    border-bottom:1px solid var(--line, #d9cdb4);
-  }
-  .ooty-elephant-walker{
-    position:absolute;
-    bottom:2px;
-    font-size:18px;
-    animation:ooty-elephant-walk 19s linear infinite, ooty-elephant-bob 0.6s ease-in-out infinite;
-  }
-
-  .ooty-elephant-strip{
-    position:relative;
-    height:30px;
-    overflow:hidden;
-    background:linear-gradient(180deg, #e8e0cb 0%, #ddd2b4 100%);
-    border-bottom:1px solid var(--line, #d9cdb4);
-  }
-
-  .ooty-day-card{
-    animation:ooty-fade-in 0.45s ease-out both;
-  }
-
-  .ooty-tab-btn{
-    transition:background 0.25s ease, opacity 0.25s ease, transform 0.15s ease;
-  }
-  .ooty-tab-btn:hover{
-    transform:translateY(-1px);
-  }
-
   button{
     transition:transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
   }
@@ -148,73 +408,59 @@
   button:active{
     transform:translateY(0);
   }
-
-  .ooty-leaf-badge{
-    display:inline-block;
-    animation:ooty-leaf-sway 3s ease-in-out infinite;
-    transform-origin:50% 0%;
-  }
-
-  #ooty-pane-plan, #ooty-pane-money{
-    animation:ooty-fade-in 0.3s ease-out both;
-  }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
 <body style="margin:0; padding:20px; background:#eee8da; font-family: Georgia, serif;">
 
-<div id="ooty-signin-screen" style="max-width:720px; margin:60px auto; text-align:center; padding:40px 24px; background:#f6f1e7; border-radius:14px;">
-  <div style="font-size:24px; font-weight:bold; color:#2b2420; margin-bottom:8px;">Ooty Ride Plan</div>
+<div id="ooty-signin-screen" style="max-width:720px; margin:60px auto; text-align:center; padding:40px 24px; background:#f4efe3; border-radius:14px;">
+  <div style="font-size:24px; font-weight:bold; color:var(--pine); margin-bottom:8px; letter-spacing:1px;">🌿 Ooty Ride Plan</div>
   <div style="font-size:14px; color:#5a5248; margin-bottom:24px;">Sign in with Google to load your trip data</div>
   <div id="ooty-google-btn-container" style="display:flex; justify-content:center;"></div>
   <div id="ooty-signin-status" style="font-size:13px; color:#b5552d; margin-top:14px; min-height:18px;"></div>
 </div>
 
-<div id="ooty-app" style="display:none; --ink:#2b2420; --paper:#f6f1e7; --pine:#3f5b4a; --rust:#b5552d; --gold:#c69a3e; --line:#d9cdb4; font-family: 'Georgia', serif; background:var(--paper); color:var(--ink); max-width:720px; margin:0 auto; border-radius:14px; overflow:hidden; box-shadow:0 2px 18px rgba(0,0,0,0.12);">
+<div id="ooty-app" style="display:none; --ink:#2b2218; --paper:#f4efe3; --pine:#2e4d35; --rust:#a84830; --gold:#b8902a; --line:#d0c8b0; font-family: 'Georgia', serif; background:var(--paper); color:var(--ink); max-width:720px; margin:0 auto; border-radius:14px; overflow:hidden; box-shadow:0 2px 18px rgba(0,0,0,0.12);">
 
-<div style="background:var(--pine); color:var(--paper); padding:22px 24px 18px;">
-  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+<div class="ooty-header">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; position:relative; z-index:1;">
     <div>
-      <div style="font-size:12px; letter-spacing:2px; text-transform:uppercase; opacity:0.75;">25–29 June · Bangalore → Ooty</div>
-      <div style="font-size:28px; font-weight:bold; margin-top:4px;">Ooty Ride Plan</div>
-      <div style="font-size:13px; opacity:0.85; margin-top:2px;">Raks &amp; Prateeksha · Yamaha Ray ZR 125 · ₹20,000 budget</div>
+      <div class="ooty-header-eyebrow">25–29 June · Bangalore → Ooty</div>
+      <div class="ooty-header-title">Ooty Ride Plan</div>
+      <div class="ooty-header-sub">Raks &amp; Prateeksha · Ray ZR 125 · ₹20,000</div>
     </div>
     <div style="text-align:right; flex-shrink:0; margin-left:12px;">
-      <div id="ooty-user-name" style="font-size:12px; opacity:0.85;"></div>
-      <button data-action="sign-out" style="margin-top:6px; font-size:11px; padding:4px 10px; background:rgba(255,255,255,0.15); color:white; border:1px solid rgba(255,255,255,0.3); border-radius:6px; cursor:pointer; font-family:inherit;">Sign out</button>
+      <div id="ooty-user-name" style="font-size:12px; color:#a8c8a0;"></div>
+      <button data-action="sign-out" class="ooty-signout-btn">Sign out</button>
     </div>
   </div>
-  <div class="ooty-header-art" aria-hidden="true">
-    <svg viewBox="0 0 400 60" preserveAspectRatio="none">
-      <polygon points="0,60 40,18 80,60" fill="#2f4438" opacity="0.55"/>
-      <polygon points="60,60 110,8 160,60" fill="#2f4438" opacity="0.7"/>
-      <polygon points="140,60 190,22 240,60" fill="#28392e" opacity="0.6"/>
-      <polygon points="220,60 270,4 320,60" fill="#28392e" opacity="0.75"/>
-      <polygon points="300,60 345,20 400,60" fill="#2f4438" opacity="0.55"/>
-      <ellipse cx="70" cy="22" rx="34" ry="7" fill="#f6f1e7" opacity="0.18"/>
-      <ellipse cx="230" cy="14" rx="44" ry="8" fill="#f6f1e7" opacity="0.14"/>
-      <ellipse cx="340" cy="26" rx="30" ry="6" fill="#f6f1e7" opacity="0.16"/>
+  <div class="ooty-header-mountains" aria-hidden="true">
+    <svg viewBox="0 0 400 38" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="0,38 30,14 65,38" fill="#1e3828" opacity="0.7"/>
+      <polygon points="45,38 90,6 138,38" fill="#244530" opacity="0.85"/>
+      <polygon points="118,38 168,16 218,38" fill="#1e3828" opacity="0.7"/>
+      <polygon points="198,38 255,2 312,38" fill="#2a4e34" opacity="0.9"/>
+      <polygon points="292,38 338,12 384,38" fill="#1e3828" opacity="0.75"/>
+      <polygon points="364,38 390,20 400,38" fill="#244530" opacity="0.6"/>
+      <ellipse cx="90" cy="18" rx="48" ry="9" fill="#f0ede0" opacity="0.1"/>
+      <ellipse cx="255" cy="12" rx="60" ry="10" fill="#f0ede0" opacity="0.12"/>
+      <rect x="0" y="32" width="400" height="6" fill="#253d2a"/>
     </svg>
-    <span class="ooty-header-train">🚂💨</span>
   </div>
 </div>
 
-<div class="ooty-elephant-strip" aria-hidden="true">
-  <span class="ooty-elephant-walker">🐘</span>
-</div>
-
-<div style="display:flex; border-bottom:1px solid var(--line);">
-  <button data-action="show-tab" data-tab="plan" id="ooty-tab-plan" class="ooty-tab-btn" style="flex:1; padding:13px; background:var(--gold); color:var(--ink); border:none; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer;">Itinerary</button>
-  <button data-action="show-tab" data-tab="money" id="ooty-tab-money" class="ooty-tab-btn" style="flex:1; padding:13px; background:transparent; color:var(--ink); border:none; font-family:inherit; font-size:14px; cursor:pointer; opacity:0.6;">Expenses</button>
+<div class="ooty-tabs">
+  <button data-action="show-tab" data-tab="plan" id="ooty-tab-plan" class="ooty-tab active">🌿 Itinerary</button>
+  <button data-action="show-tab" data-tab="money" id="ooty-tab-money" class="ooty-tab">🍃 Expenses</button>
 </div>
 
 
-<div id="ooty-pane-plan" style="padding:20px 22px 26px;">
+<div id="ooty-pane-plan">
   <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:8px;">
-    <button data-action="undo-edit" id="ooty-undo-btn" style="display:none; font-size:12px; padding:6px 12px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; color:var(--rust); font-family:inherit;">↩ Undo last edit</button>
-    <button data-action="toggle-edit-mode" id="ooty-edit-toggle" style="font-size:12px; padding:6px 12px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; color:var(--ink); font-family:inherit;">✏️ Edit</button>
-    <button data-action="refresh" style="font-size:12px; padding:6px 12px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; color:var(--ink); font-family:inherit;">⟳ Refresh</button>
+    <button data-action="undo-edit" id="ooty-undo-btn" class="ooty-btn-outline" style="display:none; color:var(--rust);">↩ Undo last edit</button>
+    <button data-action="toggle-edit-mode" id="ooty-edit-toggle" class="ooty-btn-outline">✏️ Edit</button>
+    <button data-action="refresh" class="ooty-btn-outline">⟳ Refresh</button>
   </div>
   <div id="ooty-sync-status" style="font-size:11px; opacity:0.55; margin-bottom:10px; min-height:14px;"></div>
   <div id="ooty-itinerary-days"></div>
@@ -224,64 +470,64 @@
       <input id="ooty-modal-time" placeholder="Time / heading (e.g. 9:00 AM — Breakfast)" style="width:100%; padding:9px; margin-bottom:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px; box-sizing:border-box;">
       <textarea id="ooty-modal-note" placeholder="Note (cost, tip, detail)" style="width:100%; padding:9px; margin-bottom:12px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px; box-sizing:border-box; min-height:60px;"></textarea>
       <div style="display:flex; gap:8px;">
-        <button data-action="close-modal" style="flex:1; padding:10px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; font-family:inherit;">Cancel</button>
-        <button data-action="confirm-modal" style="flex:1; padding:10px; background:var(--pine); color:white; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:bold;">Save</button>
+        <button data-action="close-modal" class="ooty-btn-outline" style="flex:1; padding:10px;">Cancel</button>
+        <button data-action="confirm-modal" class="ooty-btn-pine" style="flex:1; padding:10px;">Save</button>
       </div>
     </div>
   </div>
-  <div style="margin-top:18px; padding:12px 14px; background:#fff8e9; border:1px solid var(--line); border-radius:8px; font-size:13px; line-height:1.5;">
+  <div class="ooty-ride-notes">
     <b>Ride notes:</b> Fill tank before Bandipur both ways (no pumps in forest, closed 9 PM–6 AM). Rain ponchos on top of bag. Engine-brake on descents. Keep luggage under 10 kg, centred on rear seat with a bungee net.
   </div>
 </div>
 
-<div id="ooty-pane-money" style="display:none; padding:20px 22px 26px;">
+<div id="ooty-pane-money" style="display:none;">
 
   <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;">
-    <div style="font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--pine); font-weight:bold;">Budget plan</div>
-    <button data-action="toggle-edit-mode" id="ooty-edit-toggle-money" style="font-size:12px; padding:5px 10px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; color:var(--ink); font-family:inherit;">✏️ Edit</button>
+    <div class="ooty-section-label" style="margin-bottom:0;">Budget plan</div>
+    <button data-action="toggle-edit-mode" id="ooty-edit-toggle-money" class="ooty-btn-outline">✏️ Edit</button>
   </div>
   <div style="font-size:12px; opacity:0.65; margin-bottom:14px;">₹20,000 total</div>
 
-  <table style="width:100%; font-size:14px; border-collapse:collapse; margin-bottom:20px;">
-    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Fuel</td><td style="text-align:right; padding:6px 0;">₹1,200</td></tr>
-    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Hotels (4 nights)</td><td style="text-align:right; padding:6px 0;">₹8,000</td></tr>
-    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Food</td><td style="text-align:right; padding:6px 0;">₹4,200</td></tr>
-    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Sightseeing</td><td style="text-align:right; padding:6px 0;">₹1,300</td></tr>
-    <tr style="border-bottom:1px solid var(--line);"><td style="padding:6px 0;">Shopping</td><td style="text-align:right; padding:6px 0;">₹700</td></tr>
+  <table class="ooty-budget-table">
+    <tr><td style="padding:6px 0;">Fuel</td><td style="text-align:right; padding:6px 0;">₹1,200</td></tr>
+    <tr><td style="padding:6px 0;">Hotels (4 nights)</td><td style="text-align:right; padding:6px 0;">₹8,000</td></tr>
+    <tr><td style="padding:6px 0;">Food</td><td style="text-align:right; padding:6px 0;">₹4,200</td></tr>
+    <tr><td style="padding:6px 0;">Sightseeing</td><td style="text-align:right; padding:6px 0;">₹1,300</td></tr>
+    <tr><td style="padding:6px 0;">Shopping</td><td style="text-align:right; padding:6px 0;">₹700</td></tr>
     <tr><td style="padding:6px 0; font-weight:bold;">Emergency buffer</td><td style="text-align:right; padding:6px 0; font-weight:bold;">₹4,800</td></tr>
   </table>
 
-  <div id="ooty-budget-widget" style="display:flex; gap:10px; margin-bottom:20px;">
-    <div style="flex:1; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center;">
-      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.6;">Spent</div>
-      <div id="ooty-spent-total" style="font-size:20px; font-weight:bold; color:var(--rust);">₹0</div>
+  <div class="ooty-budget-cards">
+    <div class="ooty-budget-card spent">
+      <div class="ooty-budget-label">Spent</div>
+      <div id="ooty-spent-total" class="ooty-budget-amount" style="color:var(--rust);">₹0</div>
     </div>
-    <div style="flex:1; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; text-align:center;">
-      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; opacity:0.6;"><span class="ooty-leaf-badge">🍃</span> Remaining</div>
-      <div id="ooty-remaining-total" style="font-size:20px; font-weight:bold; color:var(--pine);">₹20,000</div>
+    <div class="ooty-budget-card remaining">
+      <div class="ooty-budget-label">Remaining</div>
+      <div id="ooty-remaining-total" class="ooty-budget-amount" style="color:var(--pine);">₹20,000</div>
     </div>
   </div>
 
-  <div style="font-size:13px; letter-spacing:1px; text-transform:uppercase; color:var(--pine); font-weight:bold; margin-bottom:10px;">Log an expense</div>
+  <div class="ooty-section-label">Log an expense</div>
   <div class="ooty-expense-form">
-    <input id="ooty-who" class="ooty-input-who" placeholder="Name" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
-    <input id="ooty-what" class="ooty-input-what" placeholder="What for" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
-    <input id="ooty-amt" class="ooty-input-amt" type="number" placeholder="₹" style="padding:9px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:14px;">
+    <input id="ooty-who" class="ooty-input-who ooty-input" placeholder="Name">
+    <input id="ooty-what" class="ooty-input-what ooty-input" placeholder="What for">
+    <input id="ooty-amt" class="ooty-input-amt ooty-input" type="number" placeholder="₹">
   </div>
-  <button data-action="add-expense" style="width:100%; padding:11px; background:var(--rust); color:white; border:none; border-radius:6px; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer; margin-bottom:10px;">Add expense</button>
+  <button data-action="add-expense" class="ooty-btn-rust" style="margin-bottom:10px;">Add expense</button>
 
   <input id="ooty-bill-file" type="file" accept="image/*" capture="environment" style="display:none;">
-  <button data-action="trigger-bill-upload" style="width:100%; padding:11px; background:var(--pine); color:white; border:none; border-radius:6px; font-family:inherit; font-size:14px; font-weight:bold; cursor:pointer; margin-bottom:6px;">📷 Upload bill photo (scans on-device)</button>
+  <button data-action="trigger-bill-upload" class="ooty-btn-pine" style="margin-bottom:6px;">📷 Upload bill photo (scans on-device)</button>
   <div id="ooty-bill-status" style="font-size:12px; text-align:center; opacity:0.65; margin-bottom:8px; min-height:16px;"></div>
   <div id="ooty-bill-confirm" style="display:none; margin-bottom:18px; padding:10px; background:#fff; border:1px solid var(--line); border-radius:8px;">
     <div style="font-size:12px; opacity:0.7; margin-bottom:6px;">Detected — confirm or correct before saving:</div>
     <div class="ooty-expense-form" style="margin-bottom:8px;">
-      <input id="ooty-bill-label-input" class="ooty-input-what" placeholder="What for" style="padding:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:13px;">
-      <input id="ooty-bill-amt-input" class="ooty-input-amt" type="number" placeholder="₹" style="padding:8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:13px;">
+      <input id="ooty-bill-label-input" class="ooty-input-what ooty-input" placeholder="What for" style="font-size:13px;">
+      <input id="ooty-bill-amt-input" class="ooty-input-amt ooty-input" type="number" placeholder="₹" style="font-size:13px;">
     </div>
     <div style="display:flex; gap:8px;">
-      <button data-action="cancel-bill" style="flex:1; padding:8px; background:transparent; border:1px solid var(--line); border-radius:6px; cursor:pointer; font-family:inherit; font-size:13px;">Discard</button>
-      <button data-action="save-bill" style="flex:1; padding:8px; background:var(--rust); color:white; border:none; border-radius:6px; cursor:pointer; font-family:inherit; font-weight:bold; font-size:13px;">Save expense</button>
+      <button data-action="cancel-bill" class="ooty-btn-outline" style="flex:1; padding:8px; font-size:13px;">Discard</button>
+      <button data-action="save-bill" class="ooty-btn-rust" style="flex:1; padding:8px; font-size:13px;">Save expense</button>
     </div>
   </div>
 
@@ -478,10 +724,8 @@
   function showTab(tab){
     document.getElementById('ooty-pane-plan').style.display = tab==='plan' ? 'block':'none';
     document.getElementById('ooty-pane-money').style.display = tab==='money' ? 'block':'none';
-    document.getElementById('ooty-tab-plan').style.background = tab==='plan' ? 'var(--gold)':'transparent';
-    document.getElementById('ooty-tab-plan').style.opacity = tab==='plan' ? '1':'0.6';
-    document.getElementById('ooty-tab-money').style.background = tab==='money' ? 'var(--gold)':'transparent';
-    document.getElementById('ooty-tab-money').style.opacity = tab==='money' ? '1':'0.6';
+    document.getElementById('ooty-tab-plan').classList.toggle('active', tab==='plan');
+    document.getElementById('ooty-tab-money').classList.toggle('active', tab==='money');
     if(tab==='money') loadExpenses();
   }
 
@@ -545,20 +789,20 @@
     wrap.innerHTML = ITINERARY.map((day, dayIdx)=>{
       const rows = day.items.map((it, itemIdx)=>{
         const checked = !!checkedState[it.id];
-        return '<div style="display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--line); align-items:flex-start;">'+
-          '<div data-action="toggle-check" data-id="'+escapeAttr(it.id)+'" style="flex-shrink:0; width:18px; height:18px; margin-top:2px; border:2px solid var(--pine); border-radius:4px; background:'+(checked?'var(--pine)':'transparent')+'; display:flex; align-items:center; justify-content:center; color:white; font-size:12px; cursor:pointer;">'+(checked?'✓':'')+'</div>'+
-          '<div data-action="toggle-check" data-id="'+escapeAttr(it.id)+'" style="flex:1; cursor:pointer; '+(checked?'opacity:0.5; text-decoration:line-through;':'')+'">'+
-          '<div style="font-weight:bold; font-size:14px;">'+escapeHtml(it.t)+'</div>'+
-          '<div style="font-size:13px; opacity:0.75; margin-top:1px;">'+escapeHtml(it.d)+'</div></div>'+
-          (editMode ? '<button data-action="open-modal" data-day="'+dayIdx+'" data-item="'+itemIdx+'" style="flex-shrink:0; background:transparent; border:none; cursor:pointer; font-size:14px; opacity:0.5; padding:2px 4px;">✏️</button>' : '')+
+        return '<div class="ooty-check-row'+(checked?' done':'')+'">'+
+          '<div data-action="toggle-check" data-id="'+escapeAttr(it.id)+'" class="ooty-check-box'+(checked?' checked':'')+'">'+(checked?'✓':'')+'</div>'+
+          '<div data-action="toggle-check" data-id="'+escapeAttr(it.id)+'" class="ooty-check-text">'+
+          '<div class="ooty-check-time">'+escapeHtml(it.t)+'</div>'+
+          '<div class="ooty-check-note">'+escapeHtml(it.d)+'</div></div>'+
+          (editMode ? '<button data-action="open-modal" data-day="'+dayIdx+'" data-item="'+itemIdx+'" style="flex-shrink:0; background:transparent; border:none; cursor:pointer; font-size:14px; opacity:0.55; padding:2px 4px;">✏️</button>' : '')+
           '</div>';
       }).join('');
-      return '<div class="ooty-day-card" style="margin-bottom:20px; animation-delay:'+(dayIdx*0.06)+'s;">'+
+      return '<div class="ooty-day-card" style="animation-delay:'+(dayIdx*0.06)+'s;">'+
         '<div style="display:flex; justify-content:space-between; align-items:baseline;">'+
-        '<div style="font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--rust); font-weight:bold;">'+escapeHtml(day.day)+'</div>'+
-        (editMode ? '<button data-action="open-modal" data-day="'+dayIdx+'" data-item="" style="font-size:12px; background:transparent; border:1px solid var(--line); border-radius:6px; padding:4px 10px; cursor:pointer; font-family:inherit;">+ Add</button>' : '')+
+        '<div class="ooty-day-label">'+escapeHtml(day.day)+'</div>'+
+        (editMode ? '<button data-action="open-modal" data-day="'+dayIdx+'" data-item="" class="ooty-btn-outline" style="padding:4px 10px; font-size:11px;">+ Add</button>' : '')+
         '</div>'+
-        '<div style="font-weight:bold; font-size:16px; margin:3px 0 8px;">'+escapeHtml(day.title)+'</div>'+
+        '<div class="ooty-day-title" style="border-bottom:none; margin-bottom:4px; padding-bottom:0;">'+escapeHtml(day.title)+'</div>'+
         rows+'</div>';
     }).join('');
   }
