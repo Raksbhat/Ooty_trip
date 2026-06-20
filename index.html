@@ -383,10 +383,193 @@
   </div>
 </div>
 
+<div id="ooty-forest-strip" style="position:relative; height:100px; overflow:hidden; background:#16271a;">
+  <canvas id="ooty-forest-canvas" style="display:block; width:100%; height:100%;"></canvas>
+</div>
+
 <div class="ooty-tabs">
   <button data-action="show-tab" data-tab="plan" id="ooty-tab-plan" class="ooty-tab active">🌿 Itinerary</button>
   <button data-action="show-tab" data-tab="money" id="ooty-tab-money" class="ooty-tab">🍃 Expenses</button>
 </div>
+
+<script>
+(function(){
+  var wrap = document.getElementById('ooty-forest-strip');
+  var cv = document.getElementById('ooty-forest-canvas');
+  var ctx = cv.getContext('2d');
+  var W=0, H=100;
+
+  function resize(){
+    W = wrap.clientWidth;
+    var dpr = Math.min(window.devicePixelRatio||1, 2);
+    cv.width = W*dpr; cv.height = H*dpr;
+    cv.style.width = W+'px'; cv.style.height = H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // ---- Static forest background (rendered to offscreen, reused each frame) ----
+  function drawForestBG(c, w, h){
+    var sky=c.createLinearGradient(0,0,0,h);
+    sky.addColorStop(0,'#1c3322'); sky.addColorStop(1,'#16271a');
+    c.fillStyle=sky; c.fillRect(0,0,w,h);
+
+    // 3 layered tree rows, back to front
+    var rows=[
+      {y:h*0.32, sp:w/9,  th:h*0.55, col:'#1f4028', tw:0.6},
+      {y:h*0.48, sp:w/7,  th:h*0.62, col:'#244a2e', tw:0.75},
+      {y:h*0.68, sp:w/5.5,th:h*0.72, col:'#2a5536', tw:0.95},
+    ];
+    rows.forEach(function(r){
+      for(var x=-r.sp; x<w+r.sp; x+=r.sp){
+        var jitter=(Math.sin(x*0.7)*4);
+        var tx=x+jitter, ty=r.y, th=r.th, tw=th*r.tw;
+        // trunk
+        c.fillStyle='#2a1c0e';
+        c.fillRect(tx-tw*0.05, ty, tw*0.1, th*0.22);
+        // canopy (layered triangles)
+        [0.85,0.6,0.35].forEach(function(tier,i){
+          c.beginPath();
+          c.moveTo(tx, ty-th*tier);
+          c.lineTo(tx-tw*(0.55-i*0.1), ty-th*(tier-0.22));
+          c.lineTo(tx+tw*(0.55-i*0.1), ty-th*(tier-0.22));
+          c.closePath();
+          c.fillStyle=r.col; c.fill();
+        });
+      }
+    });
+
+    // ground band
+    var gnd=c.createLinearGradient(0,h*0.86,0,h);
+    gnd.addColorStop(0,'#1a2e1c'); gnd.addColorStop(1,'#0f1d12');
+    c.fillStyle=gnd; c.fillRect(0,h*0.86,w,h*0.14);
+  }
+
+  // ---- Train (engine + 3 coaches) ----
+  function drawTrain(c, x, y, scale){
+    c.save(); c.translate(x,y); c.scale(scale,scale);
+    var coachW=34, gap=5, coachH=16;
+    // draw 3 coaches then engine, right to left so engine leads
+    for(var i=3;i>=1;i--){
+      var cx = -(i)*(coachW+gap);
+      c.fillStyle = i%2===0 ? '#7a3b2a' : '#8a4530';
+      c.fillRect(cx, -coachH, coachW, coachH);
+      c.fillStyle='#d8c890';
+      for(var wi=0;wi<2;wi++){
+        c.fillRect(cx+8+wi*16, -coachH+4, 7, 6);
+      }
+      // wheels
+      c.fillStyle='#1a1410';
+      c.beginPath(); c.arc(cx+7,0,3,0,6.28); c.fill();
+      c.beginPath(); c.arc(cx+coachW-7,0,3,0,6.28); c.fill();
+    }
+    // engine
+    c.fillStyle='#3a3a3a';
+    c.fillRect(0,-coachH-2,30,coachH+2);
+    c.fillStyle='#222';
+    c.fillRect(4,-coachH-12,9,11);
+    c.beginPath(); c.arc(7,-coachH-2,2,0,6.28); c.fillStyle='#ffdca0'; c.fill();
+    c.fillStyle='#1a1410';
+    c.beginPath(); c.arc(7,0,3.5,0,6.28); c.fill();
+    c.beginPath(); c.arc(23,0,3.5,0,6.28); c.fill();
+    // smoke puffs
+    var puffT = (performance.now()/400)%1;
+    for(var p=0;p<3;p++){
+      var pf=(puffT+p*0.33)%1;
+      c.beginPath();
+      c.arc(8-pf*4, -coachH-12-pf*14, 3+pf*5, 0, 6.28);
+      c.fillStyle='rgba(210,210,200,'+(0.35*(1-pf))+')';
+      c.fill();
+    }
+    c.restore();
+  }
+
+  // ---- Simple animal silhouettes ----
+  function drawDeer(c,x,y,scale,facingLeft,legPhase){
+    c.save(); c.translate(x,y); c.scale(facingLeft?-scale:scale, scale);
+    c.fillStyle='#5a4128';
+    c.beginPath(); c.ellipse(0,-8,9,5,0,0,6.28); c.fill(); // body
+    c.beginPath(); c.ellipse(9,-12,4,3.2,0,0,6.28); c.fill(); // head
+    // antlers
+    c.strokeStyle='#4a3018'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(11,-15); c.lineTo(13,-19); c.moveTo(9,-15); c.lineTo(8,-19); c.stroke();
+    // legs
+    var sw = Math.sin(legPhase)*2.5;
+    c.strokeStyle='#4a3420'; c.lineWidth=1.6;
+    [[-5,sw],[-2,-sw],[3,sw],[6,-sw]].forEach(function(L){
+      c.beginPath(); c.moveTo(L[0],-5); c.lineTo(L[0]+L[1]*0.3,2); c.stroke();
+    });
+    c.restore();
+  }
+
+  function drawLangur(c,x,y,scale,legPhase){
+    c.save(); c.translate(x,y); c.scale(scale,scale);
+    c.fillStyle='#888078';
+    c.beginPath(); c.ellipse(0,-6,5,6,0,0,6.28); c.fill();
+    c.beginPath(); c.arc(0,-13,3.2,0,6.28); c.fillStyle='#3a3530'; c.fill();
+    c.strokeStyle='#777068'; c.lineWidth=1.4;
+    c.beginPath(); c.moveTo(4,-4); c.quadraticCurveTo(10,2,8,8); c.stroke(); // tail
+    var sw=Math.sin(legPhase)*2;
+    [[-2,sw],[2,-sw]].forEach(function(L){
+      c.beginPath(); c.moveTo(L[0],-1); c.lineTo(L[0]+L[1]*0.4,5); c.stroke();
+    });
+    c.restore();
+  }
+
+  function drawPeacock(c,x,y,scale,phase){
+    c.save(); c.translate(x,y); c.scale(scale,scale);
+    var fan = Math.sin(phase*0.5)*0.15;
+    // tail feathers fan
+    c.save(); c.rotate(fan);
+    for(var f=-2;f<=2;f++){
+      c.beginPath();
+      c.ellipse(f*3,4,2,7,f*0.25,0,6.28);
+      c.fillStyle = f%2===0 ? '#1f6b4a' : '#1a5c8a';
+      c.globalAlpha=0.85; c.fill(); c.globalAlpha=1;
+    }
+    c.restore();
+    c.fillStyle='#1a4d8a';
+    c.beginPath(); c.ellipse(0,-6,4,4.5,0,0,6.28); c.fill();
+    c.beginPath(); c.arc(0,-11,2.2,0,6.28); c.fillStyle='#1a4d8a'; c.fill();
+    c.strokeStyle='#2a6da0'; c.lineWidth=1;
+    c.beginPath(); c.moveTo(-1,-2); c.lineTo(-1,4); c.moveTo(1,-2); c.lineTo(1,4); c.stroke();
+    c.restore();
+  }
+
+  // ---- Animation state ----
+  var deer = {x:-40, sp:0.55};
+  var langur = {x:-80, sp:0.4};
+  var peacock = {x:-120, sp:0.3};
+  var trainX = -200;
+  var legT = 0;
+
+  function loop(){
+    if(!document.body.contains(cv)) return; // stop if removed
+    legT += 0.12;
+    ctx.clearRect(0,0,W,H);
+    drawForestBG(ctx, W, H);
+
+    // Train moves left to right along upper-mid band
+    trainX += 0.7;
+    if(trainX > W+140) trainX = -140;
+    drawTrain(ctx, trainX, H*0.42, 0.95);
+
+    // Animals move right to left along the ground band, looping
+    deer.x -= deer.sp; if(deer.x < -30) deer.x = W+30;
+    drawDeer(ctx, deer.x, H*0.86, 1.1, true, legT*1.3);
+
+    langur.x -= langur.sp; if(langur.x < -25) langur.x = W+25+Math.random()*40;
+    drawLangur(ctx, langur.x, H*0.90, 1.0, legT*1.6);
+
+    peacock.x -= peacock.sp; if(peacock.x < -25) peacock.x = W+25+Math.random()*60;
+    drawPeacock(ctx, peacock.x, H*0.88, 1.0, legT);
+
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
 
 
 <div id="ooty-pane-plan">
@@ -1034,8 +1217,8 @@
     document.getElementById('ooty-signin-screen').style.display = 'none';
     document.getElementById('ooty-app').style.display = 'block';
     document.getElementById('ooty-user-name').textContent = name || '';
-    loadChecks();
-    loadExpenses();
+    try{ loadChecks(); }catch(e){ console.error('loadChecks error:', e); }
+    try{ loadExpenses(); }catch(e){ console.error('loadExpenses error:', e); }
   }
 
   function showSignIn(message){
@@ -1051,36 +1234,53 @@
   }
 
   function initGoogleAuth(){
-    if(typeof google === 'undefined' || !google.accounts){
-      document.getElementById('ooty-signin-status').textContent = 'Google sign-in script failed to load — check your connection.';
-      return;
-    }
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: GOOGLE_CLIENT_ID,
-      scope: DRIVE_SCOPE,
-      callback: (resp)=>{
-        if(resp && resp.access_token){
-          accessToken = resp.access_token;
-          sessionStorage.setItem('ooty_access_token', accessToken);
-          fetchUserInfoAndShowApp();
-        } else {
-          document.getElementById('ooty-signin-status').textContent = 'Sign-in failed — please try again.';
-        }
+    try{
+      if(typeof google === 'undefined' || !google.accounts){
+        document.getElementById('ooty-signin-status').textContent = 'Google sign-in script failed to load — check your connection.';
+        return;
       }
-    });
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: DRIVE_SCOPE,
+        callback: (resp)=>{
+          try{
+            if(resp && resp.access_token){
+              accessToken = resp.access_token;
+              sessionStorage.setItem('ooty_access_token', accessToken);
+              fetchUserInfoAndShowApp();
+            } else {
+              document.getElementById('ooty-signin-status').textContent = 'Sign-in failed — please try again.';
+            }
+          }catch(e){
+            console.error('OAuth callback error:', e);
+            document.getElementById('ooty-signin-status').textContent = 'Sign-in error: '+e.message;
+          }
+        }
+      });
 
-    const btnContainer = document.getElementById('ooty-google-btn-container');
-    const btn = document.createElement('button');
-    btn.textContent = 'Sign in with Google';
-    btn.style.cssText = 'padding:10px 20px; background:#3f5b4a; color:white; border:none; border-radius:8px; font-size:14px; cursor:pointer; font-family:Georgia, serif;';
-    btn.addEventListener('click', ()=> tokenClient.requestAccessToken());
-    btnContainer.innerHTML = '';
-    btnContainer.appendChild(btn);
+      const btnContainer = document.getElementById('ooty-google-btn-container');
+      const btn = document.createElement('button');
+      btn.textContent = 'Sign in with Google';
+      btn.style.cssText = 'padding:10px 20px; background:#3f5b4a; color:white; border:none; border-radius:8px; font-size:14px; cursor:pointer; font-family:Georgia, serif;';
+      btn.addEventListener('click', ()=>{
+        try{ tokenClient.requestAccessToken(); }
+        catch(e){
+          console.error('requestAccessToken error:', e);
+          document.getElementById('ooty-signin-status').textContent = 'Could not open sign-in: '+e.message;
+        }
+      });
+      btnContainer.innerHTML = '';
+      btnContainer.appendChild(btn);
 
-    const cached = sessionStorage.getItem('ooty_access_token');
-    if(cached){
-      accessToken = cached;
-      fetchUserInfoAndShowApp(true);
+      const cached = sessionStorage.getItem('ooty_access_token');
+      if(cached){
+        accessToken = cached;
+        fetchUserInfoAndShowApp(true);
+      }
+    }catch(e){
+      console.error('initGoogleAuth fatal error:', e);
+      const statusEl = document.getElementById('ooty-signin-status');
+      if(statusEl) statusEl.textContent = 'Setup error: '+e.message+' — check OAuth Client ID and authorized origins in Google Cloud Console.';
     }
   }
 
@@ -1089,16 +1289,23 @@
       const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: 'Bearer '+accessToken }
       });
-      if(!res.ok) throw new Error('userinfo-failed');
+      if(!res.ok) throw new Error('userinfo-failed-'+res.status);
       const info = await res.json();
       showApp(info.name || info.email || '');
     }catch(e){
+      console.error('fetchUserInfoAndShowApp error:', e);
       if(isRestoredSession){
         sessionStorage.removeItem('ooty_access_token');
         accessToken = null;
         showSignIn('Session expired — please sign in again.');
       } else {
-        showApp('');
+        try{
+          showApp('');
+        }catch(e2){
+          console.error('showApp error:', e2);
+          const statusEl = document.getElementById('ooty-signin-status');
+          if(statusEl) statusEl.textContent = 'App failed to load: '+e2.message;
+        }
       }
     }
   }
