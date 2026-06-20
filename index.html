@@ -24,7 +24,10 @@
 
   body {
     margin: 0;
-    background: linear-gradient(160deg, #d4e8d0 0%, #c8dfc4 40%, #dce8d8 100%);
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 90%, rgba(46,77,53,0.25) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 60% at 80% 10%, rgba(90,138,98,0.2) 0%, transparent 70%),
+      linear-gradient(160deg, #b8d4b0 0%, #a8c89c 30%, #c0d8b4 60%, #cce4c0 100%);
     min-height: 100vh;
     font-family: Georgia, serif;
   }
@@ -344,7 +347,7 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
-<body style="margin:0; padding:20px; background:#eee8da; font-family: Georgia, serif;">
+<body style="margin:0; padding:20px; font-family: Georgia, serif;">
 
 
 <div id="ooty-signin-screen" style="max-width:720px; margin:60px auto; text-align:center; padding:40px 24px; background:#f4efe3; border-radius:14px;">
@@ -383,7 +386,7 @@
   </div>
 </div>
 
-<div id="ooty-forest-strip" style="position:relative; height:100px; overflow:hidden; background:#16271a;">
+<div id="ooty-forest-strip" style="position:relative; height:160px; overflow:hidden; background:#16271a;">
   <canvas id="ooty-forest-canvas" style="display:block; width:100%; height:100%;"></canvas>
 </div>
 
@@ -397,7 +400,7 @@
   var wrap = document.getElementById('ooty-forest-strip');
   var cv = document.getElementById('ooty-forest-canvas');
   var ctx = cv.getContext('2d');
-  var W=0, H=100;
+  var W=0, H=160;
 
   function resize(){
     W = wrap.clientWidth;
@@ -409,79 +412,181 @@
   resize();
   window.addEventListener('resize', resize);
 
-  // ---- Static forest background (rendered to offscreen, reused each frame) ----
+  // ---- Forest background ----
   function drawForestBG(c, w, h){
-    var sky=c.createLinearGradient(0,0,0,h);
-    sky.addColorStop(0,'#1c3322'); sky.addColorStop(1,'#16271a');
-    c.fillStyle=sky; c.fillRect(0,0,w,h);
+    // Sky gradient - dusk/evening blue-green
+    var sky = c.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#1a2e40');
+    sky.addColorStop(0.4, '#1e3830');
+    sky.addColorStop(1, '#16271a');
+    c.fillStyle = sky; c.fillRect(0, 0, w, h);
 
-    // 3 layered tree rows, back to front
-    var rows=[
-      {y:h*0.32, sp:w/9,  th:h*0.55, col:'#1f4028', tw:0.6},
-      {y:h*0.48, sp:w/7,  th:h*0.62, col:'#244a2e', tw:0.75},
-      {y:h*0.68, sp:w/5.5,th:h*0.72, col:'#2a5536', tw:0.95},
+    // Stars
+    var stars = [[0.1,0.05],[0.25,0.1],[0.4,0.04],[0.6,0.08],[0.75,0.06],[0.88,0.12],[0.55,0.15],[0.15,0.18]];
+    stars.forEach(function(s){
+      c.beginPath(); c.arc(s[0]*w, s[1]*h, 1, 0, 6.28);
+      c.fillStyle = 'rgba(255,255,220,0.6)'; c.fill();
+    });
+
+    // Moon glow
+    c.beginPath(); c.arc(w*0.85, h*0.15, 10, 0, 6.28);
+    c.fillStyle = '#e8dfa0'; c.fill();
+    c.beginPath(); c.arc(w*0.85, h*0.15, 16, 0, 6.28);
+    c.fillStyle = 'rgba(232,223,160,0.12)'; c.fill();
+
+    // distant misty hills
+    c.beginPath();
+    c.moveTo(0, h*0.55);
+    for(var xi=0; xi<=w; xi+=20){
+      var hy = h*0.55 + Math.sin(xi*0.018)*h*0.08 + Math.sin(xi*0.031)*h*0.05;
+      c.lineTo(xi, hy);
+    }
+    c.lineTo(w, h); c.lineTo(0, h); c.closePath();
+    c.fillStyle = '#1a3022'; c.fill();
+
+    // Tree rows — back to front, taller and clearer
+    var rows = [
+      {y:h*0.50, sp:w/11, th:h*0.55, col:'#1a3820', tw:0.55},
+      {y:h*0.62, sp:w/8,  th:h*0.52, col:'#1f4428', tw:0.65},
+      {y:h*0.75, sp:w/6,  th:h*0.50, col:'#255030', tw:0.80},
     ];
     rows.forEach(function(r){
-      for(var x=-r.sp; x<w+r.sp; x+=r.sp){
-        var jitter=(Math.sin(x*0.7)*4);
-        var tx=x+jitter, ty=r.y, th=r.th, tw=th*r.tw;
-        // trunk
-        c.fillStyle='#2a1c0e';
-        c.fillRect(tx-tw*0.05, ty, tw*0.1, th*0.22);
-        // canopy (layered triangles)
-        [0.85,0.6,0.35].forEach(function(tier,i){
+      for(var x = -r.sp; x < w + r.sp; x += r.sp){
+        var jitter = Math.sin(x * 0.53 + r.y) * 5;
+        var tx = x + jitter, ty = r.y, th = r.th, tw = th * r.tw;
+        c.fillStyle = '#1a0e06';
+        c.fillRect(tx - tw*0.06, ty, tw*0.12, th*0.25);
+        [0.9, 0.65, 0.38].forEach(function(tier, i){
           c.beginPath();
-          c.moveTo(tx, ty-th*tier);
-          c.lineTo(tx-tw*(0.55-i*0.1), ty-th*(tier-0.22));
-          c.lineTo(tx+tw*(0.55-i*0.1), ty-th*(tier-0.22));
+          c.moveTo(tx, ty - th*tier);
+          c.lineTo(tx - tw*(0.52 - i*0.1), ty - th*(tier - 0.26));
+          c.lineTo(tx + tw*(0.52 - i*0.1), ty - th*(tier - 0.26));
           c.closePath();
-          c.fillStyle=r.col; c.fill();
+          // slight colour variation per tier
+          var shade = ['#' + (parseInt(r.col.slice(1),16) + i*0x030402).toString(16).padStart(6,'0')];
+          c.fillStyle = r.col; c.fill();
         });
       }
     });
 
-    // ground band
-    var gnd=c.createLinearGradient(0,h*0.86,0,h);
-    gnd.addColorStop(0,'#1a2e1c'); gnd.addColorStop(1,'#0f1d12');
-    c.fillStyle=gnd; c.fillRect(0,h*0.86,w,h*0.14);
+    // Train track rail — two thin horizontal lines
+    var railY = h * 0.38;
+    c.strokeStyle = '#5a4a30'; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(0, railY); c.lineTo(w, railY); c.stroke();
+    c.beginPath(); c.moveTo(0, railY + 5); c.lineTo(w, railY + 5); c.stroke();
+
+    // Track sleepers
+    c.strokeStyle = '#3a2a18'; c.lineWidth = 3;
+    for(var sx = 0; sx < w; sx += 18){
+      c.beginPath(); c.moveTo(sx, railY - 1); c.lineTo(sx, railY + 6); c.stroke();
+    }
+
+    // Ground band
+    var gnd = c.createLinearGradient(0, h*0.88, 0, h);
+    gnd.addColorStop(0, '#1a2e1c'); gnd.addColorStop(1, '#0f1d12');
+    c.fillStyle = gnd; c.fillRect(0, h*0.88, w, h*0.12);
   }
 
-  // ---- Train (engine + 3 coaches) ----
+  // ---- Toy Train (engine + 4 coaches) ----
   function drawTrain(c, x, y, scale){
-    c.save(); c.translate(x,y); c.scale(scale,scale);
-    var coachW=34, gap=5, coachH=16;
-    // draw 3 coaches then engine, right to left so engine leads
-    for(var i=3;i>=1;i--){
-      var cx = -(i)*(coachW+gap);
-      c.fillStyle = i%2===0 ? '#7a3b2a' : '#8a4530';
+    c.save(); c.translate(x, y); c.scale(scale, scale);
+
+    var coachW = 44, gap = 4, coachH = 22;
+    var railOffset = 0; // y=0 is the rail line; coaches sit above
+
+    // Coach colours — classic Nilgiri Mountain Railway blue/red
+    var coachColors = ['#2255a0', '#c44020', '#2255a0', '#c44020'];
+
+    // Draw coaches (trailing behind engine, which is at x=0 facing right)
+    for(var i = 4; i >= 1; i--){
+      var cx = -(i) * (coachW + gap) - 2;
+      var cc = coachColors[i-1];
+
+      // Coach body
+      c.fillStyle = cc;
       c.fillRect(cx, -coachH, coachW, coachH);
-      c.fillStyle='#d8c890';
-      for(var wi=0;wi<2;wi++){
-        c.fillRect(cx+8+wi*16, -coachH+4, 7, 6);
+
+      // Coach roof stripe
+      c.fillStyle = 'rgba(255,255,255,0.15)';
+      c.fillRect(cx + 2, -coachH, coachW - 4, 4);
+
+      // Windows
+      c.fillStyle = '#d8c890';
+      for(var wi = 0; wi < 3; wi++){
+        c.fillRect(cx + 6 + wi*14, -coachH + 6, 9, 8);
+        // window shine
+        c.fillStyle = 'rgba(255,255,200,0.3)';
+        c.fillRect(cx + 6 + wi*14, -coachH + 6, 3, 3);
+        c.fillStyle = '#d8c890';
       }
-      // wheels
-      c.fillStyle='#1a1410';
-      c.beginPath(); c.arc(cx+7,0,3,0,6.28); c.fill();
-      c.beginPath(); c.arc(cx+coachW-7,0,3,0,6.28); c.fill();
+
+      // Coupler between coaches
+      if(i > 1){
+        c.fillStyle = '#555';
+        c.fillRect(cx + coachW, -3, gap, 2);
+      }
+
+      // Wheels
+      c.fillStyle = '#1a1410';
+      [cx + 8, cx + coachW - 8].forEach(function(wx){
+        c.beginPath(); c.arc(wx, 0, 4.5, 0, 6.28); c.fill();
+        c.beginPath(); c.arc(wx, 0, 2, 0, 6.28);
+        c.fillStyle = '#888'; c.fill();
+        c.fillStyle = '#1a1410';
+      });
     }
-    // engine
-    c.fillStyle='#3a3a3a';
-    c.fillRect(0,-coachH-2,30,coachH+2);
-    c.fillStyle='#222';
-    c.fillRect(4,-coachH-12,9,11);
-    c.beginPath(); c.arc(7,-coachH-2,2,0,6.28); c.fillStyle='#ffdca0'; c.fill();
-    c.fillStyle='#1a1410';
-    c.beginPath(); c.arc(7,0,3.5,0,6.28); c.fill();
-    c.beginPath(); c.arc(23,0,3.5,0,6.28); c.fill();
-    // smoke puffs
-    var puffT = (performance.now()/400)%1;
-    for(var p=0;p<3;p++){
-      var pf=(puffT+p*0.33)%1;
+
+    // Coupler: engine to first coach
+    c.fillStyle = '#555';
+    c.fillRect(-(coachW + gap) - 2 + coachW, -3, gap, 2);
+
+    // Engine body
+    c.fillStyle = '#2a2a2a';
+    c.fillRect(0, -coachH - 4, 36, coachH + 4);
+
+    // Engine cab
+    c.fillStyle = '#1a1a1a';
+    c.fillRect(22, -coachH - 4, 14, coachH + 4);
+
+    // Cab window
+    c.fillStyle = '#d8c890';
+    c.fillRect(25, -coachH + 2, 8, 9);
+    c.fillStyle = 'rgba(255,255,200,0.4)';
+    c.fillRect(25, -coachH + 2, 3, 4);
+
+    // Boiler dome & chimney
+    c.fillStyle = '#444';
+    c.beginPath(); c.arc(8, -coachH - 4, 5, Math.PI, 0); c.fill();
+    c.fillStyle = '#333';
+    c.fillRect(5, -coachH - 14, 7, 10);
+    c.fillRect(3, -coachH - 16, 11, 3);
+
+    // Headlight
+    c.beginPath(); c.arc(2, -coachH + 6, 3.5, 0, 6.28);
+    c.fillStyle = '#ffe080'; c.fill();
+    c.beginPath(); c.arc(2, -coachH + 6, 5, 0, 6.28);
+    c.fillStyle = 'rgba(255,224,128,0.2)'; c.fill();
+
+    // Engine wheels
+    c.fillStyle = '#1a1410';
+    [7, 20, 31].forEach(function(wx){
+      c.beginPath(); c.arc(wx, 0, 5, 0, 6.28); c.fill();
+      c.beginPath(); c.arc(wx, 0, 2.2, 0, 6.28);
+      c.fillStyle = '#888'; c.fill();
+      c.fillStyle = '#1a1410';
+    });
+
+    // Smoke puffs from chimney
+    var puffT = (performance.now() / 500) % 1;
+    for(var p = 0; p < 4; p++){
+      var pf = (puffT + p * 0.25) % 1;
+      var pr = 4 + pf * 9;
       c.beginPath();
-      c.arc(8-pf*4, -coachH-12-pf*14, 3+pf*5, 0, 6.28);
-      c.fillStyle='rgba(210,210,200,'+(0.35*(1-pf))+')';
+      c.arc(8 - pf * 12, -coachH - 16 - pf * 22, pr, 0, 6.28);
+      c.fillStyle = 'rgba(200,200,190,' + (0.5 * (1 - pf)) + ')';
       c.fill();
     }
+
     c.restore();
   }
 
@@ -541,29 +646,30 @@
   var deer = {x:-40, sp:0.55};
   var langur = {x:-80, sp:0.4};
   var peacock = {x:-120, sp:0.3};
-  var trainX = -200;
+  var trainX = -260;
   var legT = 0;
 
   function loop(){
-    if(!document.body.contains(cv)) return; // stop if removed
+    if(!document.body.contains(cv)) return;
     legT += 0.12;
-    ctx.clearRect(0,0,W,H);
+    ctx.clearRect(0, 0, W, H);
     drawForestBG(ctx, W, H);
 
-    // Train moves left to right along upper-mid band
-    trainX += 0.7;
-    if(trainX > W+140) trainX = -140;
-    drawTrain(ctx, trainX, H*0.42, 0.95);
+    // Train moves left to right, sitting ON the rail (railY = H*0.38, wheels at y=0 relative to rail)
+    trainX += 1.1;
+    if(trainX > W + 260) trainX = -260;
+    // Rail is drawn at H*0.38 and H*0.38+5; train y=0 aligns with top of rail
+    drawTrain(ctx, trainX, H * 0.38, 1.05);
 
-    // Animals move right to left along the ground band, looping
-    deer.x -= deer.sp; if(deer.x < -30) deer.x = W+30;
-    drawDeer(ctx, deer.x, H*0.86, 1.1, true, legT*1.3);
+    // Animals move right to left along the ground band
+    deer.x -= deer.sp; if(deer.x < -30) deer.x = W + 30;
+    drawDeer(ctx, deer.x, H*0.90, 1.2, true, legT*1.3);
 
-    langur.x -= langur.sp; if(langur.x < -25) langur.x = W+25+Math.random()*40;
-    drawLangur(ctx, langur.x, H*0.90, 1.0, legT*1.6);
+    langur.x -= langur.sp; if(langur.x < -25) langur.x = W + 25 + Math.random()*40;
+    drawLangur(ctx, langur.x, H*0.93, 1.1, legT*1.6);
 
-    peacock.x -= peacock.sp; if(peacock.x < -25) peacock.x = W+25+Math.random()*60;
-    drawPeacock(ctx, peacock.x, H*0.88, 1.0, legT);
+    peacock.x -= peacock.sp; if(peacock.x < -25) peacock.x = W + 25 + Math.random()*60;
+    drawPeacock(ctx, peacock.x, H*0.91, 1.1, legT);
 
     requestAnimationFrame(loop);
   }
